@@ -169,7 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="bg-gray-50">
         <Navbar />
-        <main className="p-6">{children}</main>
+        <main className="">{children}</main>
       </body>
     </html>
   );

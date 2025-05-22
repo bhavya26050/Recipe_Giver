@@ -5,7 +5,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { useRouter } from 'next/navigation';
 import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
-         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle } from 'lucide-react';
+         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ChatPage() {
@@ -26,19 +26,37 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedText, setEditedText] = useState('');
-  // Add this type declaration above your component or at the top of the file
-  // Extend the Window interface to include webkitSpeechRecognition
+  
   interface Window {
     webkitSpeechRecognition: typeof SpeechRecognition;
   }
   type SpeechRecognition = typeof window.webkitSpeechRecognition;
   
-    const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
+  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  
+  // Listen for clicks outside the sidebar to close it on mobile
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const sidebarElement = document.getElementById('sidebar');
+      const menuButton = document.getElementById('menu-button');
+      
+      if (isSidebarOpen && sidebarElement && 
+          !sidebarElement.contains(event.target as Node) && 
+          menuButton && !menuButton.contains(event.target as Node)) {
+        setIsSidebarOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside as any);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside as any);
+    };
+  }, [isSidebarOpen]);
 
   useEffect(() => {
     // Initialize speech recognition if browser supports it
@@ -147,6 +165,7 @@ export default function ChatPage() {
   };
   
   const clearChat = () => {
+    // Always create a new chat, regardless of whether there are messages
     // Save current chat to previous chats if it has more than one message
     if (messages.length > 1) {
       const firstUserMsg = messages.find(msg => msg.from === 'user');
@@ -169,6 +188,16 @@ export default function ChatPage() {
     setMessages([
       { from: 'bot', text: 'Chat cleared! How else can I help you today?', id: Date.now() }
     ]);
+    
+    // Close sidebar on mobile after creating new chat
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+    
+    // Focus on input field after clearing
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
   };
 
   const toggleSidebar = () => {
@@ -176,28 +205,28 @@ export default function ChatPage() {
   };
 
   const deleteChat = (chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
-      // Prevent the click from bubbling up to the parent button
-      e.stopPropagation();
-      
-      // If this is the current chat, reset to a new chat
-      if (chatId === currentChatId) {
-        setCurrentChatId(null);
-        setMessages([
-          { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
-        ]);
-      }
-      
-      // Remove the chat from previous chats
-      setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
-    };
+    // Prevent the click from bubbling up to the parent button
+    e.stopPropagation();
+    
+    // If this is the current chat, reset to a new chat
+    if (chatId === currentChatId) {
+      setCurrentChatId(null);
+      setMessages([
+        { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
+      ]);
+    }
+    
+    // Remove the chat from previous chats
+    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+  };
 
-  // New function to restore a previous chat
   const restorePreviousChat = (chatId: number) => {
     const selectedChat = previousChats.find(chat => chat.id === chatId);
     if (selectedChat && selectedChat.messages) {
       setCurrentChatId(chatId);
       setMessages(selectedChat.messages);
-      // On mobile, close the sidebar after selecting a chat
+      
+      // Close sidebar on mobile after selecting a chat
       if (window.innerWidth < 768) {
         setIsSidebarOpen(false);
       }
@@ -214,10 +243,33 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
+  // Create a theme toggler
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // Apply theme to body
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [isDarkMode]);
+
   return (
-    <div className="h-screen w-full flex overflow-hidden bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800 font-sans">
+    <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
+      {/* Overlay for mobile sidebar */}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
       {/* Sidebar */}
-      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-300 fixed md:static left-0 top-0 h-full w-64 bg-gray-900 text-white z-30 flex flex-col shadow-lg overflow-hidden`}>
+      <div 
+        id="sidebar"
+        className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-300 fixed md:relative left-0 top-0 h-full w-72 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-900'} text-white z-30 flex flex-col shadow-lg overflow-hidden`}
+      >
         {/* New Chat Button */}
         <div className="p-4 border-b border-gray-800 flex items-center">
           <ChefHat className="w-6 h-6 text-emerald-500 mr-2" />
@@ -237,7 +289,7 @@ export default function ChatPage() {
         </div>
         
         {/* Previous Chats */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 p-2">
+        <div className="flex-1 overflow-y-auto p-2">
           <div className="space-y-1">
             {previousChats.length > 0 ? (
               <>
@@ -248,8 +300,9 @@ export default function ChatPage() {
                   <div key={chat.id} className="flex items-center group">
                     <button 
                       onClick={() => restorePreviousChat(chat.id)}
-                      className="w-full py-2 px-3 text-sm text-left text-gray-300 hover:bg-gray-700 rounded-md truncate flex-1"
+                      className="w-full py-2 px-3 text-sm text-left text-gray-300 hover:bg-gray-700 rounded-md truncate flex-1 flex items-center"
                     >
+                      <MessageSquare className="w-3 h-3 mr-2 text-gray-500" />
                       {chat.title}
                     </button>
                     <button 
@@ -262,8 +315,9 @@ export default function ChatPage() {
                 ))}
               </>
             ) : (
-              <div className="py-3 px-2 text-gray-500 text-xs italic">
-                No previous chats
+              <div className="py-5 px-4 text-gray-500 text-sm flex flex-col items-center">
+                <BookOpen className="w-10 h-10 mb-2 opacity-50" />
+                <p className="text-center">Your chat history will appear here</p>
               </div>
             )}
           </div>
@@ -275,7 +329,7 @@ export default function ChatPage() {
             <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
               <UserCircle className="w-6 h-6" />
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1">
               <p className="text-sm truncate">{userEmail}</p>
             </div>
           </div>
@@ -291,28 +345,52 @@ export default function ChatPage() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative">
         {/* Top Bar */}
-        <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 z-20">
-          <button onClick={toggleSidebar} className="md:hidden mr-3">
-            <Menu className="w-6 h-6 text-gray-700" />
+        <div className={`h-14 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b flex items-center px-4 z-10`}>
+          <button 
+            id="menu-button"
+            onClick={toggleSidebar} 
+            className="md:hidden mr-3"
+          >
+            <Menu className={`w-6 h-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
           </button>
           <div className="flex items-center">
             <ChefHat className="w-6 h-6 text-emerald-600 mr-2" />
-            <h1 className="text-lg font-medium text-gray-700">NutriChef</h1>
+            <h1 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>NutriChef</h1>
+          </div>
+          
+          {/* Theme toggle */}
+          <div className="ml-auto flex items-center gap-2">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-yellow-300' : 'bg-gray-200 text-gray-700'}`}
+              title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {isDarkMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Chat Container */}
         <div className="flex-1 relative flex flex-col overflow-hidden">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto py-4 px-4 md:px-8 z-10 bg-white">
+          <div className={`flex-1 overflow-y-auto py-4 px-4 md:px-8 z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="max-w-3xl mx-auto">
-              <AnimatePresence>
+              <AnimatePresence mode="popLayout">
                 {messages.length > 0 ? (
                   messages.map((msg, idx) => (
                     <motion.div
                       key={`${msg.id || idx}`}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
                       className={`mb-6 flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
@@ -332,19 +410,19 @@ export default function ChatPage() {
                               <textarea
                                 value={editedText}
                                 onChange={(e) => setEditedText(e.target.value)}
-                                className="p-3 rounded-lg border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full min-h-[80px]"
+                                className={`p-3 rounded-lg border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full min-h-[80px] ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'}`}
                                 autoFocus
                               />
                               <div className="flex justify-end gap-2">
                                 <button 
                                   onClick={cancelEdit}
-                                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                  className={`px-2 py-1 text-xs ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'} flex items-center gap-1`}
                                 >
                                   <X className="w-3 h-3" /> Cancel
                                 </button>
                                 <button 
                                   onClick={saveEdit}
-                                  className="px-2 py-1 bg-emerald-500 text-white rounded-md text-xs flex items-center gap-1"
+                                  className="px-2 py-1 bg-emerald-500 text-white rounded-md text-xs flex items-center gap-1 hover:bg-emerald-600"
                                 >
                                   <Check className="w-3 h-3" /> Save
                                 </button>
@@ -354,7 +432,9 @@ export default function ChatPage() {
                             <>
                               <div className={`p-3 rounded-lg ${
                                 msg.from === 'bot' 
-                                  ? 'bg-gray-100 text-gray-800 rounded-tl-none'
+                                  ? isDarkMode 
+                                    ? 'bg-gray-700 text-gray-100 rounded-tl-none' 
+                                    : 'bg-gray-100 text-gray-800 rounded-tl-none'
                                   : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-none'
                               }`}>
                                 {msg.text}
@@ -364,7 +444,7 @@ export default function ChatPage() {
                                 {msg.from === 'user' && (
                                   <button 
                                     onClick={() => startEditing(msg.id, msg.text)} 
-                                    className="hover:text-gray-800 transition flex items-center gap-1"
+                                    className={`${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'} transition flex items-center gap-1`}
                                   >
                                     <Edit className="w-3 h-3" /> Edit
                                   </button>
@@ -380,14 +460,14 @@ export default function ChatPage() {
                                         <button onClick={() => giveFeedback(msg.id, 'negative')} className="p-1 hover:text-red-600 transition">
                                           <ThumbsDown className="w-3 h-3" />
                                         </button>
-                                        <button onClick={() => setShowFeedback(null)} className="text-xs hover:text-gray-800">
+                                        <button onClick={() => setShowFeedback(null)} className={`text-xs ${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'}`}>
                                           Cancel
                                         </button>
                                       </div>
                                     ) : (
                                       <button 
                                         onClick={() => setShowFeedback(msg.id)} 
-                                        className="hover:text-gray-800 transition"
+                                        className={`${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'} transition`}
                                       >
                                         Helpful?
                                       </button>
@@ -402,9 +482,9 @@ export default function ChatPage() {
                     </motion.div>
                   ))
                 ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-gray-500">
-                      <ChefHat className="mx-auto w-12 h-12 text-emerald-300 mb-3" />
+                  <div className="flex items-center justify-center h-64">
+                    <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      <ChefHat className={`mx-auto w-12 h-12 ${isDarkMode ? 'text-emerald-700' : 'text-emerald-300'} mb-3`} />
                       <p>Start a new conversation with NutriChef</p>
                     </div>
                   </div>
@@ -422,11 +502,11 @@ export default function ChatPage() {
                       </div>
                       
                       <div className="flex-1">
-                        <div className="p-3 rounded-lg bg-gray-100 text-gray-800 rounded-tl-none">
+                        <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} text-gray-800 rounded-tl-none`}>
                           <div className="flex space-x-2">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }}></div>
+                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }}></div>
+                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }}></div>
                           </div>
                         </div>
                       </div>
@@ -439,7 +519,7 @@ export default function ChatPage() {
           </div>
 
           {/* Input */}
-          <div className="p-4 border-t border-gray-200 bg-white z-10">
+          <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} z-10`}>
             <div className="max-w-3xl mx-auto">
               <div className="relative">
                 <input
@@ -448,13 +528,25 @@ export default function ChatPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   placeholder={isRecording ? "Listening..." : "Message NutriChef..."}
-                  className={`w-full py-3 pl-4 pr-20 rounded-lg border ${isRecording ? 'border-red-400 bg-red-50' : 'border-gray-300'} focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm transition-all`}
+                  className={`w-full py-3 pl-4 pr-20 rounded-lg border ${
+                    isRecording 
+                      ? 'border-red-400 bg-red-50' 
+                      : isDarkMode 
+                        ? 'border-gray-600 bg-gray-700 text-white' 
+                        : 'border-gray-300 bg-white text-gray-800'
+                  } focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm transition-all`}
                   disabled={isRecording}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   <button 
                     onClick={toggleVoiceRecording} 
-                    className={`p-2 rounded-md ${isRecording ? 'text-red-600 bg-red-100' : 'text-gray-500 hover:text-emerald-600 hover:bg-gray-100'} transition`}
+                    className={`p-2 rounded-md ${
+                      isRecording 
+                        ? 'text-red-600 bg-red-100' 
+                        : isDarkMode 
+                          ? 'text-gray-300 hover:text-emerald-400 hover:bg-gray-600' 
+                          : 'text-gray-500 hover:text-emerald-600 hover:bg-gray-100'
+                    } transition`}
                     title={isRecording ? "Stop recording" : "Start voice input"}
                   >
                     {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
@@ -462,21 +554,23 @@ export default function ChatPage() {
                   <button 
                     onClick={handleSend} 
                     disabled={!input.trim() && !isRecording}
-                    className={`p-2 rounded-md text-emerald-600 hover:bg-gray-100 transition ${(!input.trim() && !isRecording) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2 rounded-md ${
+                      isDarkMode ? 'text-emerald-400 hover:bg-gray-600' : 'text-emerald-600 hover:bg-gray-100'
+                    } transition ${(!input.trim() && !isRecording) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
               </div>
               <div className="flex justify-between items-center mt-2 text-xs">
-                <div className="text-gray-500">
+                <div className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
                   {!speechRecognition && (
                     <span className="flex items-center text-amber-600">
                       <AlertCircle className="w-3 h-3 mr-1" /> Voice input not supported in this browser
                     </span>
                   )}
                 </div>
-                <div className="text-gray-500">
+                <div className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
                   Press Enter to send, Shift+Enter for new line
                 </div>
               </div>
