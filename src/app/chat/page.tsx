@@ -1,783 +1,58 @@
-// // // // // // // // 'use client';
-
-// // // // // // // // import { useState } from 'react';
-
-// // // // // // // // export default function ChatPage() {
-// // // // // // // //   const [message, setMessage] = useState('');
-// // // // // // // //   const [chat, setChat] = useState<string[]>([]);
-
-// // // // // // // //   const sendMessage = () => {
-// // // // // // // //     if (message.trim()) {
-// // // // // // // //       setChat([...chat, `You: ${message}`]);
-// // // // // // // //       setMessage('');
-// // // // // // // //     }
-// // // // // // // //   };
-
-// // // // // // // //   return (
-// // // // // // // //     <div className="min-h-screen flex flex-col items-center justify-between p-4 bg-gray-50">
-// // // // // // // //       <div className="w-full max-w-2xl bg-white p-4 shadow rounded flex-1 overflow-y-auto">
-// // // // // // // //         {chat.map((msg, index) => (
-// // // // // // // //           <div key={index} className="mb-2 text-gray-800">{msg}</div>
-// // // // // // // //         ))}
-// // // // // // // //       </div>
-// // // // // // // //       <div className="w-full max-w-2xl mt-4 flex">
-// // // // // // // //         <input
-// // // // // // // //           type="text"
-// // // // // // // //           value={message}
-// // // // // // // //           onChange={(e) => setMessage(e.target.value)}
-// // // // // // // //           className="flex-1 p-2 border border-gray-300 rounded-l"
-// // // // // // // //           placeholder="Type your message..."
-// // // // // // // //         />
-// // // // // // // //         <button onClick={sendMessage} className="bg-blue-500 text-white px-4 rounded-r hover:bg-blue-600">
-// // // // // // // //           Send
-// // // // // // // //         </button>
-// // // // // // // //       </div>
-// // // // // // // //     </div>
-// // // // // // // //   );
-// // // // // // // // }
-// // // // // // // 'use client';
-
-// // // // // // // import { useState } from 'react';
-
-// // // // // // // export default function ChatPage() {
-// // // // // // //   const [message, setMessage] = useState('');
-// // // // // // //   const [chat, setChat] = useState<string[]>([]);
-
-// // // // // // //   const sendMessage = () => {
-// // // // // // //     if (message.trim()) {
-// // // // // // //       // Dummy chatbot reply – replace with backend API call
-// // // // // // //       setChat([...chat, `You: ${message}`, `NutriChef: Here's a recipe based on "${message}"`]);
-// // // // // // //       setMessage('');
-// // // // // // //     }
-// // // // // // //   };
-
-// // // // // // //   return (
-// // // // // // //     <div className="min-h-screen bg-gray-50 flex flex-col items-center p-4">
-// // // // // // //       <div className="w-full max-w-2xl bg-white p-4 shadow rounded flex-1 overflow-y-auto mb-4">
-// // // // // // //         {chat.map((msg, idx) => (
-// // // // // // //           <div key={idx} className="mb-2 text-gray-800">{msg}</div>
-// // // // // // //         ))}
-// // // // // // //       </div>
-// // // // // // //       <div className="w-full max-w-2xl flex">
-// // // // // // //         <input
-// // // // // // //           type="text"
-// // // // // // //           value={message}
-// // // // // // //           onChange={(e) => setMessage(e.target.value)}
-// // // // // // //           className="flex-1 p-2 border border-gray-300 rounded-l"
-// // // // // // //           placeholder="Type your message..."
-// // // // // // //         />
-// // // // // // //         <button onClick={sendMessage} className="bg-green-500 text-white px-4 rounded-r hover:bg-green-600">
-// // // // // // //           Send
-// // // // // // //         </button>
-// // // // // // //       </div>
-// // // // // // //     </div>
-// // // // // // //   );
-// // // // // // // }
-// // // // // // 'use client';
-
-// // // // // // import { useEffect, useState } from 'react';
-// // // // // // import { onAuthStateChanged } from 'firebase/auth';
-// // // // // // import { useRouter } from 'next/navigation';
-// // // // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // // // export default function ChatPage() {
-// // // // // //   const [loading, setLoading] = useState(true);
-// // // // // //   const router = useRouter();
-
-// // // // // //   useEffect(() => {
-// // // // // //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// // // // // //       if (!user) {
-// // // // // //         router.push('/login'); // 🔒 Redirect to login if not authenticated
-// // // // // //       } else {
-// // // // // //         setLoading(false); // ✅ Authenticated
-// // // // // //       }
-// // // // // //     });
-
-// // // // // //     return () => unsubscribe();
-// // // // // //   }, [router]);
-
-// // // // // //   if (loading) {
-// // // // // //     return (
-// // // // // //       <div className="h-screen flex justify-center items-center">
-// // // // // //         <p className="text-xl font-semibold">Loading...</p>
-// // // // // //       </div>
-// // // // // //     );
-// // // // // //   }
-
-// // // // // //   return (
-// // // // // //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-green-200 via-green-100 to-green-300">
-// // // // // //       <div className="bg-white p-8 rounded-xl shadow-xl w-full max-w-2xl">
-// // // // // //         <h1 className="text-3xl font-bold text-center text-green-700 mb-6">Welcome to NutriChef Chat</h1>
-// // // // // //         {/* Chat UI goes here */}
-// // // // // //       </div>
-// // // // // //     </div>
-// // // // // //   );
-// // // // // // }
-// // // // // 'use client';
-
-// // // // // import { useEffect, useState } from 'react';
-// // // // // import { onAuthStateChanged } from 'firebase/auth';
-// // // // // import { useRouter } from 'next/navigation';
-// // // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // // export default function ChatPage() {
-// // // // //   const router = useRouter();
-// // // // //   const [user, setUser] = useState<any>(null);
-// // // // //   const [loading, setLoading] = useState(true);
-// // // // //   const [message, setMessage] = useState('');
-// // // // //   const [chat, setChat] = useState<string[]>([]);
-
-// // // // //   useEffect(() => {
-// // // // //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// // // // //       if (!user) {
-// // // // //         router.push('/login');
-// // // // //       } else {
-// // // // //         setUser(user);
-// // // // //       }
-// // // // //       setLoading(false);
-// // // // //     });
-
-// // // // //     return () => unsubscribe();
-// // // // //   }, [router]);
-
-// // // // //   const sendMessage = () => {
-// // // // //     if (message.trim()) {
-// // // // //       setChat([...chat, `You: ${message}`, `NutriChef: Here's a healthy recipe suggestion for "${message}"`]);
-// // // // //       setMessage('');
-// // // // //     }
-// // // // //   };
-
-// // // // //   if (loading) return <div className="text-center text-lg p-10">Loading...</div>;
-
-// // // // //   return (
-// // // // //     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center px-4 py-6 font-sans">
-// // // // //       <h1 className="text-3xl font-bold text-green-800 mb-6">🍲 NutriChef Chat</h1>
-
-// // // // //       <div className="w-full max-w-3xl bg-white p-6 shadow-xl rounded-2xl flex-1 overflow-y-auto border border-green-200">
-// // // // //         {chat.length === 0 ? (
-// // // // //           <p className="text-gray-500 text-center italic">Start a conversation with NutriChef!</p>
-// // // // //         ) : (
-// // // // //           chat.map((msg, idx) => (
-// // // // //             <div key={idx} className={`mb-3 ${msg.startsWith('You:') ? 'text-right text-green-800' : 'text-left text-gray-700'}`}>
-// // // // //               {msg}
-// // // // //             </div>
-// // // // //           ))
-// // // // //         )}
-// // // // //       </div>
-
-// // // // //       <div className="w-full max-w-3xl mt-4 flex">
-// // // // //         <input
-// // // // //           type="text"
-// // // // //           value={message}
-// // // // //           onChange={(e) => setMessage(e.target.value)}
-// // // // //           className="flex-1 p-3 border border-gray-300 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-green-300"
-// // // // //           placeholder="Type your message..."
-// // // // //         />
-// // // // //         <button
-// // // // //           onClick={sendMessage}
-// // // // //           className="bg-green-600 text-white px-6 rounded-r-xl hover:bg-green-700 transition font-semibold"
-// // // // //         >
-// // // // //           Send
-// // // // //         </button>
-// // // // //       </div>
-// // // // //     </div>
-// // // // //   );
-// // // // // }
-// // // // 'use client';
-
-// // // // import { useEffect, useState } from 'react';
-// // // // import { onAuthStateChanged } from 'firebase/auth';
-// // // // import { useRouter } from 'next/navigation';
-// // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // export default function ChatPage() {
-// // // //   const router = useRouter();
-// // // //   const [user, setUser] = useState<any>(null);
-// // // //   const [loading, setLoading] = useState(true); // true by default until auth state is resolved
-// // // //   const [message, setMessage] = useState('');
-// // // //   const [chat, setChat] = useState<string[]>([]);
-
-// // // //   useEffect(() => {
-// // // //     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-// // // //       if (currentUser) {
-// // // //         setUser(currentUser);
-// // // //       } else {
-// // // //         router.push('/login'); // redirect to login if not logged in
-// // // //       }
-// // // //       setLoading(false);
-// // // //     });
-
-// // // //     return () => unsubscribe();
-// // // //   }, [router]);
-
-// // // //   const sendMessage = () => {
-// // // //     if (message.trim()) {
-// // // //       setChat([
-// // // //         ...chat,
-// // // //         `You: ${message}`,
-// // // //         `NutriChef: Here's a healthy recipe suggestion for "${message}"`,
-// // // //       ]);
-// // // //       setMessage('');
-// // // //     }
-// // // //   };
-
-// // // //   if (loading) {
-// // // //     return (
-// // // //       <div className="min-h-screen flex items-center justify-center text-xl text-gray-600">
-// // // //         Checking authentication...
-// // // //       </div>
-// // // //     );
-// // // //   }
-
-// // // //   if (!user) {
-// // // //     return null; // Prevent flicker if not logged in
-// // // //   }
-
-// // // //   return (
-// // // //     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center px-4 py-6 font-sans">
-// // // //       <h1 className="text-3xl font-bold text-green-800 mb-6">🍲 NutriChef Chat</h1>
-
-// // // //       <div className="w-full max-w-3xl bg-white p-6 shadow-xl rounded-2xl flex-1 overflow-y-auto border border-green-200">
-// // // //         {chat.length === 0 ? (
-// // // //           <p className="text-gray-500 text-center italic">Start a conversation with NutriChef!</p>
-// // // //         ) : (
-// // // //           chat.map((msg, idx) => (
-// // // //             <div
-// // // //               key={idx}
-// // // //               className={`mb-3 ${
-// // // //                 msg.startsWith('You:')
-// // // //                   ? 'text-right text-green-800 font-medium'
-// // // //                   : 'text-left text-gray-700'
-// // // //               }`}
-// // // //             >
-// // // //               {msg}
-// // // //             </div>
-// // // //           ))
-// // // //         )}
-// // // //       </div>
-
-// // // //       <div className="w-full max-w-3xl mt-4 flex">
-// // // //         <input
-// // // //           type="text"
-// // // //           value={message}
-// // // //           onChange={(e) => setMessage(e.target.value)}
-// // // //           className="flex-1 p-3 border border-gray-300 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-green-300"
-// // // //           placeholder="Type your message..."
-// // // //         />
-// // // //         <button
-// // // //           onClick={sendMessage}
-// // // //           className="bg-green-600 text-white px-6 rounded-r-xl hover:bg-green-700 transition font-semibold"
-// // // //         >
-// // // //           Send
-// // // //         </button>
-// // // //       </div>
-// // // //     </div>
-// // // //   );
-// // // // }
-// // // 'use client';
-
-// // // import { useEffect, useState } from 'react';
-// // // import { onAuthStateChanged } from 'firebase/auth';
-// // // import { useRouter } from 'next/navigation';
-// // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // export default function ChatPage() {
-// // //   const router = useRouter();
-// // //   const [isAuthChecked, setIsAuthChecked] = useState(false);
-// // //   const [user, setUser] = useState<any>(null);
-// // //   const [message, setMessage] = useState('');
-// // //   const [chat, setChat] = useState<string[]>([]);
-
-// // //   useEffect(() => {
-// // //     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-// // //       if (currentUser) {
-// // //         setUser(currentUser);
-// // //       } else {
-// // //         router.replace('/login'); // redirect if not authenticated
-// // //       }
-// // //       setIsAuthChecked(true); // only show UI after auth is checked
-// // //     });
-
-// // //     return () => unsubscribe();
-// // //   }, [router]);
-
-// // //   if (!isAuthChecked) {
-// // //     return (
-// // //       <div className="min-h-screen flex items-center justify-center text-xl text-gray-500">
-// // //         Checking authentication...
-// // //       </div>
-// // //     );
-// // //   }
-
-// // //   if (!user) return null; // prevent UI flash if user is not authenticated
-
-// // //   return (
-// // //     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex flex-col items-center px-4 py-6 font-sans">
-// // //       <h1 className="text-3xl font-bold text-green-800 mb-6">🍲 NutriChef Chat</h1>
-
-// // //       <div className="w-full max-w-3xl bg-white p-6 shadow-xl rounded-2xl flex-1 overflow-y-auto border border-green-200">
-// // //         {chat.length === 0 ? (
-// // //           <p className="text-gray-500 text-center italic">Start a conversation with NutriChef!</p>
-// // //         ) : (
-// // //           chat.map((msg, idx) => (
-// // //             <div
-// // //               key={idx}
-// // //               className={`mb-3 ${
-// // //                 msg.startsWith('You:')
-// // //                   ? 'text-right text-green-800 font-medium'
-// // //                   : 'text-left text-gray-700'
-// // //               }`}
-// // //             >
-// // //               {msg}
-// // //             </div>
-// // //           ))
-// // //         )}
-// // //       </div>
-
-// // //       <div className="w-full max-w-3xl mt-4 flex">
-// // //         <input
-// // //           type="text"
-// // //           value={message}
-// // //           onChange={(e) => setMessage(e.target.value)}
-// // //           className="flex-1 p-3 border border-gray-300 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-green-300"
-// // //           placeholder="Type your message..."
-// // //         />
-// // //         <button
-// // //           onClick={() => {
-// // //             if (message.trim()) {
-// // //               setChat([
-// // //                 ...chat,
-// // //                 `You: ${message}`,
-// // //                 `NutriChef: Here's a healthy recipe suggestion for "${message}"`,
-// // //               ]);
-// // //               setMessage('');
-// // //             }
-// // //           }}
-// // //           className="bg-green-600 text-white px-6 rounded-r-xl hover:bg-green-700 transition font-semibold"
-// // //         >
-// // //           Send
-// // //         </button>
-// // //       </div>
-// // //     </div>
-// // //   );
-// // // }
-// // // 'use client';
-
-// // // import { useEffect, useState } from 'react';
-// // // import { useRouter } from 'next/navigation';
-// // // import { onAuthStateChanged } from 'firebase/auth';
-// // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // export default function ChatPage() {
-// // //   const router = useRouter();
-// // //   const [loading, setLoading] = useState(true);
-// // //   const [user, setUser] = useState<any>(null);
-
-// // //   useEffect(() => {
-// // //     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-// // //       if (!currentUser) {
-// // //         router.push('/login');
-// // //       } else {
-// // //         setUser(currentUser);
-// // //         setLoading(false);
-// // //       }
-// // //     });
-// // //     return () => unsubscribe();
-// // //   }, []);
-
-// // //   if (loading) return <p className="text-center mt-10">Loading...</p>;
-
-// // //   return (
-// // //     <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg">
-// // //       <h1 className="text-2xl font-bold mb-4">Chat with NutriChef</h1>
-// // //       <div className="border border-gray-300 rounded p-4 h-64 overflow-y-scroll bg-gray-50">
-// // //         {/* Your chat messages will appear here */}
-// // //         <p className="text-gray-500">Start chatting about food, health, and recipes...</p>
-// // //       </div>
-// // //       <div className="mt-4 flex">
-// // //         <input
-// // //           type="text"
-// // //           placeholder="Type your message..."
-// // //           className="flex-1 border border-gray-300 p-2 rounded-l focus:outline-none"
-// // //         />
-// // //         <button className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600">
-// // //           Send
-// // //         </button>
-// // //       </div>
-// // //     </div>
-// // //   );
-// // // }
-// // // 'use client';
-
-// // // import { useEffect, useState } from 'react';
-// // // import { useRouter } from 'next/navigation';
-// // // import { onAuthStateChanged, signOut } from 'firebase/auth';
-// // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // export default function ChatPage() {
-// // //   const router = useRouter();
-// // //   const [loading, setLoading] = useState(true);
-// // //   const [user, setUser] = useState<any>(null);
-
-// // //   useEffect(() => {
-// // //     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-// // //       if (!currentUser) {
-// // //         router.push('/login');
-// // //       } else {
-// // //         setUser(currentUser);
-// // //         setLoading(false);
-// // //       }
-// // //     });
-// // //     return () => unsubscribe();
-// // //   }, []);
-
-// // //   const handleLogout = async () => {
-// // //     await signOut(auth);
-// // //     router.push('/login');
-// // //   };
-
-// // //   if (loading) return <p className="text-center mt-10">Loading...</p>;
-
-// // //   return (
-// // //     <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg relative">
-// // //       {/* Logout Button */}
-// // //       <button
-// // //         onClick={handleLogout}
-// // //         className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-// // //       >
-// // //         Logout
-// // //       </button>
-
-// // //       <h1 className="text-2xl font-bold mb-4">Chat with NutriChef</h1>
-
-// // //       <div className="border border-gray-300 rounded p-4 h-64 overflow-y-scroll bg-gray-50">
-// // //         {/* Chat messages will appear here */}
-// // //         <p className="text-gray-500">Start chatting about food, health, and recipes...</p>
-// // //       </div>
-
-// // //       <div className="mt-4 flex">
-// // //         <input
-// // //           type="text"
-// // //           placeholder="Type your message..."
-// // //           className="flex-1 border border-gray-300 p-2 rounded-l focus:outline-none"
-// // //         />
-// // //         <button className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600">
-// // //           Send
-// // //         </button>
-// // //       </div>
-// // //     </div>
-// // //   );
-// // // }
-// // 'use client';
-
-// // import { useEffect, useState } from 'react';
-// // import { useRouter } from 'next/navigation';
-// // import { onAuthStateChanged, signOut } from 'firebase/auth';
-// // import { auth } from '@/firebase/firebaseConfig';
-
-// // export default function ChatPage() {
-// //   const router = useRouter();
-// //   const [loading, setLoading] = useState(true);
-// //   const [user, setUser] = useState<any>(null);
-
-// //   useEffect(() => {
-// //     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-// //       if (!currentUser) {
-// //         router.push('/login');
-// //       } else {
-// //         setUser(currentUser);
-// //         setLoading(false);
-// //       }
-// //     });
-// //     return () => unsubscribe();
-// //   }, []);
-
-// //   useEffect(() => {
-// //     // Inject Bolt.new chat widget
-// //     const script = document.createElement('script');
-// //     script.src = 'https://bolt.new/chat.js';
-// //     script.async = true;
-// //     script.setAttribute('data-bolt-chatbot-id', 'YOUR_BOLT_SCRIPT_ID'); // Replace this
-// //     document.body.appendChild(script);
-
-// //     return () => {
-// //       document.body.removeChild(script); // Clean up
-// //     };
-// //   }, []);
-
-// //   const handleLogout = async () => {
-// //     await signOut(auth);
-// //     router.push('/login');
-// //   };
-
-// //   if (loading) return <p className="text-center mt-10">Loading...</p>;
-
-// //   return (
-// //     <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg relative min-h-screen">
-// //       {/* Logout Button */}
-// //       <button
-// //         onClick={handleLogout}
-// //         className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-// //       >
-// //         Logout
-// //       </button>
-
-// //       <h1 className="text-2xl font-bold mb-4">Chat with NutriChef</h1>
-
-// //       <div className="border border-gray-300 rounded p-4 h-64 overflow-y-scroll bg-gray-50">
-// //         {/* Chat messages will appear here */}
-// //         <p className="text-gray-500">Start chatting about food, health, and recipes...</p>
-// //       </div>
-
-// //       <div className="mt-4 flex">
-// //         <input
-// //           type="text"
-// //           placeholder="Type your message..."
-// //           className="flex-1 border border-gray-300 p-2 rounded-l focus:outline-none"
-// //         />
-// //         <button className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600">
-// //           Send
-// //         </button>
-// //       </div>
-
-// //       {/* Bolt.new widget will load separately */}
-// //     </div>
-// //   );
-// // }
-// // 'use client';
-
-// // import { useEffect, useRef, useState } from 'react';
-// // import { onAuthStateChanged, signOut } from 'firebase/auth';
-// // import { auth } from '@/firebase/firebaseConfig';
-// // import { useRouter } from 'next/navigation';
-// // import { ArrowUpCircle, LogOut, UserCircle } from 'lucide-react';
-
-// // export default function ChatPage() {
-// //   const [messages, setMessages] = useState([
-// //     { from: 'bot', text: 'Hello! How can I assist you today?' }
-// //   ]);
-// //   const [input, setInput] = useState('');
-// //   const [userEmail, setUserEmail] = useState('');
-// //   const messagesEndRef = useRef(null);
-// //   const router = useRouter();
-
-// //   useEffect(() => {
-// //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// //       if (!user) {
-// //         router.push('/login');
-// //       } else {
-// //         setUserEmail(user.email || '');
-// //       }
-// //     });
-// //     return () => unsubscribe();
-// //   }, []);
-
-// //   const handleSend = () => {
-// //     if (!input.trim()) return;
-// //     setMessages([...messages, { from: 'user', text: input }, { from: 'bot', text: 'Thinking...' }]);
-// //     setInput('');
-// //     setTimeout(() => {
-// //       setMessages(prev => {
-// //         const newMessages = [...prev];
-// //         newMessages.pop(); // remove 'Thinking...'
-// //         newMessages.push({ from: 'bot', text: `You said: "${input}"` });
-// //         return newMessages;
-// //       });
-// //     }, 1000);
-// //   };
-
-// //   const handleLogout = async () => {
-// //     await signOut(auth);
-// //     router.push('/login');
-// //   };
-
-// //   useEffect(() => {
-// //     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-// //   }, [messages]);
-
-// //   return (
-// //     <div className="h-screen flex flex-col bg-gradient-to-b from-zinc-900 to-black text-white font-sans">
-// //       {/* Navbar */}
-// //       <div className="flex items-center justify-between px-6 py-4 bg-zinc-950 shadow-md border-b border-zinc-800">
-// //         <h1 className="text-xl font-bold tracking-tight text-green-400">Techify Chat</h1>
-// //         <div className="flex items-center gap-4">
-// //           <span className="text-sm text-zinc-300 flex items-center gap-2">
-// //             <UserCircle className="w-5 h-5" /> {userEmail}
-// //           </span>
-// //           <button
-// //             onClick={handleLogout}
-// //             className="bg-red-600 px-3 py-1 rounded hover:bg-red-700 transition text-sm"
-// //           >
-// //             <LogOut className="w-4 h-4 inline mr-1" /> Logout
-// //           </button>
-// //         </div>
-// //       </div>
-
-// //       {/* Chat Body */}
-// //       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-// //         {messages.map((msg, idx) => (
-// //           <div
-// //             key={idx}
-// //             className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
-// //           >
-// //             <div
-// //               className={`max-w-lg px-4 py-2 rounded-xl shadow-sm ${
-// //                 msg.from === 'user'
-// //                   ? 'bg-green-600 text-white'
-// //                   : 'bg-zinc-800 text-zinc-100'
-// //               }`}
-// //             >
-// //               {msg.text}
-// //             </div>
-// //           </div>
-// //         ))}
-// //         <div ref={messagesEndRef} />
-// //       </div>
-
-// //       {/* Input */}
-// //       <div className="px-6 py-4 border-t border-zinc-800 bg-zinc-950 flex items-center gap-3">
-// //         <input
-// //           value={input}
-// //           onChange={(e) => setInput(e.target.value)}
-// //           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-// //           placeholder="Type your message..."
-// //           className="flex-1 bg-zinc-900 text-white px-4 py-2 rounded-xl border border-zinc-700 focus:outline-none focus:ring-2 focus:ring-green-600"
-// //         />
-// //         <button onClick={handleSend} className="text-green-500 hover:text-green-400 transition">
-// //           <ArrowUpCircle className="w-8 h-8" />
-// //         </button>
-// //       </div>
-// //     </div>
-// //   );
-// // }
-
-// 'use client';
-
-// import { useEffect, useRef, useState } from 'react';
-// import { onAuthStateChanged, signOut } from 'firebase/auth';
-// import { auth } from '@/firebase/firebaseConfig';
-// import { useRouter } from 'next/navigation';
-// import { ArrowUpCircle, LogOut, UserCircle } from 'lucide-react';
-
-// export default function ChatPage() {
-//   const [messages, setMessages] = useState([
-//     { from: 'bot', text: 'Hello! How can I assist you today?' }
-//   ]);
-//   const [input, setInput] = useState('');
-//   const [userEmail, setUserEmail] = useState('');
-//   const messagesEndRef = useRef(null);
-//   const router = useRouter();
-
-//   useEffect(() => {
-//     const unsubscribe = onAuthStateChanged(auth, (user) => {
-//       if (!user) {
-//         router.push('/login');
-//       } else {
-//         setUserEmail(user.email || '');
-//       }
-//     });
-//     return () => unsubscribe();
-//   }, []);
-
-//   const handleSend = () => {
-//     if (!input.trim()) return;
-//     setMessages([
-//       ...messages,
-//       { from: 'user', text: input },
-//       { from: 'bot', text: 'Thinking...' }
-//     ]);
-//     const userMessage = input;
-//     setInput('');
-//     setTimeout(() => {
-//       setMessages(prev => {
-//         const newMessages = [...prev];
-//         newMessages.pop(); // remove 'Thinking...'
-//         newMessages.push({ from: 'bot', text: `You said: "${userMessage}"` });
-//         return newMessages;
-//       });
-//     }, 1000);
-//   };
-
-//   const handleLogout = async () => {
-//     await signOut(auth);
-//     router.push('/login');
-//   };
-
-//   useEffect(() => {
-//     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-//   }, [messages]);
-
-//   return (
-//     <div className="h-screen flex flex-col bg-gradient-to-b from-[#0f0f0f] to-[#1c1c1c] text-white font-sans">
-//       {/* Navbar */}
-//       <div className="flex items-center justify-between px-6 py-4 bg-[#111111] shadow-md border-b border-[#2a2a2a]">
-//         <h1 className="text-xl font-bold tracking-tight text-green-400">NutriChef Chat</h1>
-//         <div className="flex items-center gap-4">
-//           <span className="text-sm text-gray-300 flex items-center gap-2">
-//             <UserCircle className="w-5 h-5" /> {userEmail}
-//           </span>
-//           <button
-//             onClick={handleLogout}
-//             className="bg-red-500 px-3 py-1 rounded hover:bg-red-600 transition text-sm"
-//           >
-//             <LogOut className="w-4 h-4 inline mr-1" /> Logout
-//           </button>
-//         </div>
-//       </div>
-
-//       {/* Chat Body */}
-//       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-//         {messages.map((msg, idx) => (
-//           <div
-//             key={idx}
-//             className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
-//           >
-//             <div
-//               className={`max-w-lg px-4 py-2 rounded-xl shadow-sm ${
-//                 msg.from === 'user'
-//                   ? 'bg-green-600 text-white rounded-br-none'
-//                   : 'bg-[#2a2a2a] text-gray-100 rounded-bl-none'
-//               }`}
-//             >
-//               {msg.text}
-//             </div>
-//           </div>
-//         ))}
-//         <div ref={messagesEndRef} />
-//       </div>
-
-//       {/* Input */}
-//       <div className="px-6 py-4 border-t border-[#2a2a2a] bg-[#111111] flex items-center gap-3">
-//         <input
-//           value={input}
-//           onChange={(e) => setInput(e.target.value)}
-//           onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-//           placeholder="Type your message..."
-//           className="flex-1 bg-[#1f1f1f] text-white px-4 py-2 rounded-xl border border-[#333] focus:outline-none focus:ring-2 focus:ring-green-500"
-//         />
-//         <button onClick={handleSend} className="text-green-500 hover:text-green-400 transition">
-//           <ArrowUpCircle className="w-8 h-8" />
-//         </button>
-//       </div>
-//     </div>
-//   );
-// }
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { useRouter } from 'next/navigation';
-import { ArrowUpCircle, LogOut, UserCircle } from 'lucide-react';
+import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
+         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([
-    { from: 'bot', text: 'Hello! How can I assist you today?' }
+    { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
   ]);
   const [input, setInput] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(null);
+  const [previousChats, setPreviousChats] = useState([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editedText, setEditedText] = useState('');
+  const [speechRecognition, setSpeechRecognition] = useState(null);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const router = useRouter();
+
+  useEffect(() => {
+    // Initialize speech recognition if browser supports it
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0])
+          .map(result => result.transcript)
+          .join('');
+        
+        setInput(transcript);
+      };
+      
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
+      };
+      
+      setSpeechRecognition(recognition);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -788,87 +63,414 @@ export default function ChatPage() {
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleSend = () => {
     if (!input.trim()) return;
-    setMessages([
-      ...messages,
-      { from: 'user', text: input },
-      { from: 'bot', text: 'Thinking...' }
-    ]);
+    
+    // Add user message
+    const messageId = Date.now();
+    setMessages(prev => [...prev, { from: 'user', text: input, id: messageId }]);
+    
+    // Show typing indicator
+    setIsTyping(true);
+    
     const userMessage = input;
     setInput('');
+    
+    // Focus the input after sending
+    inputRef.current?.focus();
+    
+    // Simulate response after a delay
     setTimeout(() => {
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages.pop(); // remove 'Thinking...'
-        newMessages.push({ from: 'bot', text: `You said: "${userMessage}"` });
-        return newMessages;
-      });
-    }, 1000);
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev, 
+        { from: 'bot', text: `I'll help you find recipes with "${userMessage}". What type of cuisine are you interested in?`, id: Date.now() }
+      ]);
+    }, 1500);
+  };
+
+  const toggleVoiceRecording = () => {
+    if (!speechRecognition) {
+      alert('Your browser does not support speech recognition');
+      return;
+    }
+    
+    if (isRecording) {
+      speechRecognition.stop();
+      setIsRecording(false);
+    } else {
+      speechRecognition.start();
+      setIsRecording(true);
+    }
+  };
+
+  const startEditing = (messageId, text) => {
+    setEditingMessageId(messageId);
+    setEditedText(text);
+  };
+
+  const saveEdit = () => {
+    if (!editedText.trim()) return;
+    
+    setMessages(messages.map(msg => 
+      msg.id === editingMessageId 
+        ? { ...msg, text: editedText }
+        : msg
+    ));
+    
+    setEditingMessageId(null);
+    setEditedText('');
+  };
+
+  const cancelEdit = () => {
+    setEditingMessageId(null);
+    setEditedText('');
   };
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/login');
   };
+  
+  const clearChat = () => {
+    // Save current chat to previous chats if it has more than one message
+    if (messages.length > 1) {
+      const firstUserMsg = messages.find(msg => msg.from === 'user');
+      if (firstUserMsg) {
+        const newChatId = Date.now();
+        const newChat = {
+          id: newChatId,
+          title: firstUserMsg.text.length > 25 
+            ? firstUserMsg.text.substring(0, 25) + '...' 
+            : firstUserMsg.text,
+          messages: [...messages]
+        };
+        
+        setPreviousChats(prev => [newChat, ...prev]);
+      }
+    }
+    
+    // Clear current chat
+    setCurrentChatId(null);
+    setMessages([
+      { from: 'bot', text: 'Chat cleared! How else can I help you today?', id: Date.now() }
+    ]);
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  const deleteChat = (chatId, e) => {
+    // Prevent the click from bubbling up to the parent button
+    e.stopPropagation();
+    
+    // If this is the current chat, reset to a new chat
+    if (chatId === currentChatId) {
+      setCurrentChatId(null);
+      setMessages([
+        { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
+      ]);
+    }
+    
+    // Remove the chat from previous chats
+    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+  };
+
+  // New function to restore a previous chat
+  const restorePreviousChat = (chatId) => {
+    const selectedChat = previousChats.find(chat => chat.id === chatId);
+    if (selectedChat && selectedChat.messages) {
+      setCurrentChatId(chatId);
+      setMessages(selectedChat.messages);
+      // On mobile, close the sidebar after selecting a chat
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+    }
+  };
+
+  const giveFeedback = (msgId, type) => {
+    setShowFeedback(null);
+    // In a real app, you would send this feedback to your backend
+    console.log(`Feedback ${type} for message ${msgId}`);
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-b from-[#e6ffe6] to-white text-gray-800 font-sans">
-      {/* Navbar */}
-      <div className="flex items-center justify-between px-6 py-4 bg-[#ccf5cc] shadow-md border-b border-green-300">
-        <h1 className="text-xl font-bold tracking-tight text-green-700">NutriChef Chat</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-700 flex items-center gap-2">
-            <UserCircle className="w-5 h-5" /> {userEmail}
-          </span>
+    <div className="h-screen w-full flex overflow-hidden bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800 font-sans">
+      {/* Sidebar */}
+      <div className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-300 fixed md:static left-0 top-0 h-full w-64 bg-gray-900 text-white z-30 flex flex-col shadow-lg overflow-hidden`}>
+        {/* New Chat Button */}
+        <div className="p-4 border-b border-gray-800 flex items-center">
+          <ChefHat className="w-6 h-6 text-emerald-500 mr-2" />
+          <h2 className="text-lg font-bold">NutriChef</h2>
+          <button onClick={toggleSidebar} className="ml-auto md:hidden">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-4">
+          <button 
+            onClick={clearChat}
+            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition text-sm"
+          >
+            <PlusCircle className="w-4 h-4" /> New chat
+          </button>
+        </div>
+        
+        {/* Previous Chats */}
+        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 p-2">
+          <div className="space-y-1">
+            {previousChats.length > 0 ? (
+              <>
+                <h3 className="text-xs font-medium text-gray-400 px-2 my-2 flex items-center">
+                  <Clock className="w-3 h-3 mr-1" /> Previous chats
+                </h3>
+                {previousChats.map(chat => (
+                  <div key={chat.id} className="flex items-center group">
+                    <button 
+                      onClick={() => restorePreviousChat(chat.id)}
+                      className="w-full py-2 px-3 text-sm text-left text-gray-300 hover:bg-gray-700 rounded-md truncate flex-1"
+                    >
+                      {chat.title}
+                    </button>
+                    <button 
+                      onClick={(e) => deleteChat(chat.id, e)} 
+                      className="p-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="py-3 px-2 text-gray-500 text-xs italic">
+                No previous chats
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* User Profile */}
+        <div className="p-4 border-t border-gray-800">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
+              <UserCircle className="w-6 h-6" />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-sm truncate">{userEmail}</p>
+            </div>
+          </div>
           <button
             onClick={handleLogout}
-            className="bg-red-500 px-3 py-1 rounded hover:bg-red-600 transition text-sm text-white"
+            className="w-full bg-gray-800 hover:bg-gray-700 py-1.5 px-3 rounded-md text-sm flex items-center justify-center gap-1 transition"
           >
-            <LogOut className="w-4 h-4 inline mr-1" /> Logout
+            <LogOut className="w-3.5 h-3.5" /> Sign out
           </button>
         </div>
       </div>
 
-      {/* Chat Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-lg px-4 py-2 rounded-xl shadow-sm ${
-                msg.from === 'user'
-                  ? 'bg-green-500 text-white rounded-br-none'
-                  : 'bg-gray-200 text-gray-800 rounded-bl-none'
-              }`}
-            >
-              {msg.text}
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col relative">
+        {/* Top Bar */}
+        <div className="h-14 bg-white border-b border-gray-200 flex items-center px-4 z-20">
+          <button onClick={toggleSidebar} className="md:hidden mr-3">
+            <Menu className="w-6 h-6 text-gray-700" />
+          </button>
+          <div className="flex items-center">
+            <ChefHat className="w-6 h-6 text-emerald-600 mr-2" />
+            <h1 className="text-lg font-medium text-gray-700">NutriChef</h1>
+          </div>
+        </div>
+
+        {/* Chat Container */}
+        <div className="flex-1 relative flex flex-col overflow-hidden">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto py-4 px-4 md:px-8 z-10 bg-white">
+            <div className="max-w-3xl mx-auto">
+              <AnimatePresence>
+                {messages.length > 0 ? (
+                  messages.map((msg, idx) => (
+                    <motion.div
+                      key={`${msg.id || idx}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className={`mb-6 flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[80%] flex ${msg.from === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
+                        {/* Avatar */}
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${msg.from === 'bot' ? 'bg-emerald-600' : 'bg-blue-600'} flex items-center justify-center text-white mt-1`}>
+                          {msg.from === 'bot' ? 
+                            <ChefHat className="w-5 h-5" /> : 
+                            <UserCircle className="w-5 h-5" />
+                          }
+                        </div>
+                        
+                        {/* Message Content */}
+                        <div className="flex-1">
+                          {editingMessageId === msg.id ? (
+                            <div className="flex flex-col gap-2">
+                              <textarea
+                                value={editedText}
+                                onChange={(e) => setEditedText(e.target.value)}
+                                className="p-3 rounded-lg border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full min-h-[80px]"
+                                autoFocus
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button 
+                                  onClick={cancelEdit}
+                                  className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                >
+                                  <X className="w-3 h-3" /> Cancel
+                                </button>
+                                <button 
+                                  onClick={saveEdit}
+                                  className="px-2 py-1 bg-emerald-500 text-white rounded-md text-xs flex items-center gap-1"
+                                >
+                                  <Check className="w-3 h-3" /> Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className={`p-3 rounded-lg ${
+                                msg.from === 'bot' 
+                                  ? 'bg-gray-100 text-gray-800 rounded-tl-none'
+                                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-none'
+                              }`}>
+                                {msg.text}
+                              </div>
+                              
+                              <div className="mt-1 flex items-center text-xs text-gray-500 gap-2">
+                                {msg.from === 'user' && (
+                                  <button 
+                                    onClick={() => startEditing(msg.id, msg.text)} 
+                                    className="hover:text-gray-800 transition flex items-center gap-1"
+                                  >
+                                    <Edit className="w-3 h-3" /> Edit
+                                  </button>
+                                )}
+                                
+                                {msg.from === 'bot' && msg.id && (
+                                  <>
+                                    {showFeedback === msg.id ? (
+                                      <div className="flex space-x-2 items-center">
+                                        <button onClick={() => giveFeedback(msg.id, 'positive')} className="p-1 hover:text-emerald-600 transition">
+                                          <ThumbsUp className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => giveFeedback(msg.id, 'negative')} className="p-1 hover:text-red-600 transition">
+                                          <ThumbsDown className="w-3 h-3" />
+                                        </button>
+                                        <button onClick={() => setShowFeedback(null)} className="text-xs hover:text-gray-800">
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        onClick={() => setShowFeedback(msg.id)} 
+                                        className="hover:text-gray-800 transition"
+                                      >
+                                        Helpful?
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-gray-500">
+                      <ChefHat className="mx-auto w-12 h-12 text-emerald-300 mb-3" />
+                      <p>Start a new conversation with NutriChef</p>
+                    </div>
+                  </div>
+                )}
+                
+                {isTyping && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-6 flex justify-start"
+                  >
+                    <div className="max-w-[80%] flex flex-row items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white mt-1">
+                        <ChefHat className="w-5 h-5" />
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="p-3 rounded-lg bg-gray-100 text-gray-800 rounded-tl-none">
+                          <div className="flex space-x-2">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Input */}
-      <div className="px-6 py-4 border-t border-green-200 bg-[#f0fff0] flex items-center gap-3">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Type your message..."
-          className="flex-1 bg-white text-gray-800 px-4 py-2 rounded-xl border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-400"
-        />
-        <button onClick={handleSend} className="text-green-600 hover:text-green-500 transition">
-          <ArrowUpCircle className="w-8 h-8" />
-        </button>
+          {/* Input */}
+          <div className="p-4 border-t border-gray-200 bg-white z-10">
+            <div className="max-w-3xl mx-auto">
+              <div className="relative">
+                <input
+                  ref={inputRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder={isRecording ? "Listening..." : "Message NutriChef..."}
+                  className={`w-full py-3 pl-4 pr-20 rounded-lg border ${isRecording ? 'border-red-400 bg-red-50' : 'border-gray-300'} focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm transition-all`}
+                  disabled={isRecording}
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <button 
+                    onClick={toggleVoiceRecording} 
+                    className={`p-2 rounded-md ${isRecording ? 'text-red-600 bg-red-100' : 'text-gray-500 hover:text-emerald-600 hover:bg-gray-100'} transition`}
+                    title={isRecording ? "Stop recording" : "Start voice input"}
+                  >
+                    {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                  </button>
+                  <button 
+                    onClick={handleSend} 
+                    disabled={!input.trim() && !isRecording}
+                    className={`p-2 rounded-md text-emerald-600 hover:bg-gray-100 transition ${(!input.trim() && !isRecording) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex justify-between items-center mt-2 text-xs">
+                <div className="text-gray-500">
+                  {!speechRecognition && (
+                    <span className="flex items-center text-amber-600">
+                      <AlertCircle className="w-3 h-3 mr-1" /> Voice input not supported in this browser
+                    </span>
+                  )}
+                </div>
+                <div className="text-gray-500">
+                  Press Enter to send, Shift+Enter for new line
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
