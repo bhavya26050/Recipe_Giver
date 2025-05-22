@@ -813,6 +813,7 @@ export default function ChatPage() {
     await signOut(auth);
     router.push('/login');
   };
+  
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
