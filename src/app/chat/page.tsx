@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { useRouter } from 'next/navigation';
@@ -16,36 +16,48 @@ export default function ChatPage() {
   const [userEmail, setUserEmail] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showFeedback, setShowFeedback] = useState(null);
-  const [previousChats, setPreviousChats] = useState([]);
+  const [showFeedback, setShowFeedback] = useState<number | null>(null);
+  type PreviousChat = {
+    id: number;
+    title: string;
+    messages: { from: string; text: string; id: number }[];
+  };
+  const [previousChats, setPreviousChats] = useState<PreviousChat[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedText, setEditedText] = useState('');
-  const [speechRecognition, setSpeechRecognition] = useState(null);
-  const [currentChatId, setCurrentChatId] = useState(null);
+  // Add this type declaration above your component or at the top of the file
+  // Extend the Window interface to include webkitSpeechRecognition
+  interface Window {
+    webkitSpeechRecognition: typeof SpeechRecognition;
+  }
+  type SpeechRecognition = typeof window.webkitSpeechRecognition;
   
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
+    const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
+  const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+  
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
     // Initialize speech recognition if browser supports it
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition;
+      const SpeechRecognition = window.webkitSpeechRecognition as any;
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       
-      recognition.onresult = (event) => {
+      recognition.onresult = (event: { results: Iterable<unknown> | ArrayLike<unknown>; }) => {
         const transcript = Array.from(event.results)
-          .map(result => result[0])
-          .map(result => result.transcript)
+          .map(result => (result as SpeechRecognitionResult)[0])
+          .map(result => (result as SpeechRecognitionAlternative).transcript)
           .join('');
         
         setInput(transcript);
       };
       
-      recognition.onerror = (event) => {
+      recognition.onerror = (event: { error: any; }) => {
         console.error('Speech recognition error', event.error);
         setIsRecording(false);
       };
@@ -106,7 +118,7 @@ export default function ChatPage() {
     }
   };
 
-  const startEditing = (messageId, text) => {
+  const startEditing = (messageId: number, text: string) => {
     setEditingMessageId(messageId);
     setEditedText(text);
   };
@@ -163,24 +175,24 @@ export default function ChatPage() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const deleteChat = (chatId, e) => {
-    // Prevent the click from bubbling up to the parent button
-    e.stopPropagation();
-    
-    // If this is the current chat, reset to a new chat
-    if (chatId === currentChatId) {
-      setCurrentChatId(null);
-      setMessages([
-        { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
-      ]);
-    }
-    
-    // Remove the chat from previous chats
-    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
-  };
+  const deleteChat = (chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
+      // Prevent the click from bubbling up to the parent button
+      e.stopPropagation();
+      
+      // If this is the current chat, reset to a new chat
+      if (chatId === currentChatId) {
+        setCurrentChatId(null);
+        setMessages([
+          { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
+        ]);
+      }
+      
+      // Remove the chat from previous chats
+      setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+    };
 
   // New function to restore a previous chat
-  const restorePreviousChat = (chatId) => {
+  const restorePreviousChat = (chatId: number) => {
     const selectedChat = previousChats.find(chat => chat.id === chatId);
     if (selectedChat && selectedChat.messages) {
       setCurrentChatId(chatId);
@@ -192,7 +204,7 @@ export default function ChatPage() {
     }
   };
 
-  const giveFeedback = (msgId, type) => {
+  const giveFeedback = (msgId: number, type: string) => {
     setShowFeedback(null);
     // In a real app, you would send this feedback to your backend
     console.log(`Feedback ${type} for message ${msgId}`);
