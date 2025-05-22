@@ -122,6 +122,46 @@
 //   );
 // }
 
+// 'use client';
+
+// import { useRouter } from 'next/navigation';
+// import { onAuthStateChanged } from 'firebase/auth';
+// import { useEffect } from 'react';
+// import { auth } from '@/firebase/firebaseConfig';
+
+// export default function LandingPage() {
+//   const router = useRouter();
+
+//   useEffect(() => {
+//     // Auto-redirect if already logged in
+//     onAuthStateChanged(auth, (user) => {
+//       if (user) router.replace('/chat');
+//     });
+//   }, [router]);
+
+//   return (
+//     <main className="min-h-screen bg-gradient-to-br from-white to-green-100 flex flex-col items-center justify-center px-6 py-12">
+//       <h1 className="text-5xl font-extrabold text-green-700 mb-4">🌿 NutriChef</h1>
+//       <p className="text-lg text-gray-700 mb-6 text-center max-w-xl">
+//         Your personalized nutrition and recipe assistant. Start chatting to get healthy meal plans based on your preferences.
+//       </p>
+//       <div className="flex gap-6">
+//         <button
+//           onClick={() => router.push('/login')}
+//           className="px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition"
+//         >
+//           Login
+//         </button>
+//         <button
+//           onClick={() => router.push('/register')}
+//           className="px-6 py-3 bg-white border-2 border-green-600 text-green-700 rounded-lg shadow-md hover:bg-green-100 transition"
+//         >
+//           Register
+//         </button>
+//       </div>
+//     </main>
+//   );
+// }
 'use client';
 
 import { useRouter } from 'next/navigation';
@@ -140,24 +180,57 @@ export default function LandingPage() {
   }, [router]);
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-white to-green-100 flex flex-col items-center justify-center px-6 py-12">
-      <h1 className="text-5xl font-extrabold text-green-700 mb-4">🌿 NutriChef</h1>
-      <p className="text-lg text-gray-700 mb-6 text-center max-w-xl">
-        Your personalized nutrition and recipe assistant. Start chatting to get healthy meal plans based on your preferences.
-      </p>
-      <div className="flex gap-6">
-        <button
-          onClick={() => router.push('/login')}
-          className="px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition"
-        >
-          Login
-        </button>
-        <button
-          onClick={() => router.push('/register')}
-          className="px-6 py-3 bg-white border-2 border-green-600 text-green-700 rounded-lg shadow-md hover:bg-green-100 transition"
-        >
-          Register
-        </button>
+    <main
+      className="min-h-screen flex items-center justify-center px-6 py-12"
+      style={{
+        backgroundImage:
+          "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1470&q=80')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="bg-white bg-opacity-90 backdrop-blur-md rounded-3xl shadow-xl max-w-3xl w-full p-12 flex flex-col items-center text-center">
+        <h1 className="text-6xl font-extrabold text-emerald-700 mb-6 flex items-center justify-center gap-3">
+          <span>🌿</span> NutriChef <span>🍲</span>
+        </h1>
+
+        <p className="text-xl text-gray-700 mb-10 max-w-xl leading-relaxed">
+          Your personalized <span className="font-semibold text-emerald-600">nutrition and recipe assistant</span>. 
+          Just tell me what ingredients you have or the name of the dish, and I'll provide you with delicious meal plans and recipes!
+        </p>
+
+        <div className="flex gap-8">
+          <button
+            onClick={() => router.push('/login')}
+            className="px-8 py-4 bg-emerald-600 text-white rounded-2xl shadow-lg hover:bg-emerald-700 transition transform hover:-translate-y-1"
+            aria-label="Login"
+          >
+            Login
+          </button>
+          <button
+            onClick={() => router.push('/register')}
+            className="px-8 py-4 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl shadow-lg hover:bg-emerald-50 transition transform hover:-translate-y-1"
+            aria-label="Register"
+          >
+            Register
+          </button>
+        </div>
+
+        <div className="mt-12 flex items-center gap-4 text-gray-600 text-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-emerald-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16v-1a4 4 0 00-3-3.87M3 16v-1a4 4 0 013-3.87M12 20c4.418 0 8-3.582 8-8 0-1.336-.408-2.577-1.102-3.616M4 12c0 4.418 3.582 8 8 8z" />
+          </svg>
+          <p>
+            Chat with NutriChef and get personalized recipes based on your ingredients or dish names.
+          </p>
+        </div>
       </div>
     </main>
   );
