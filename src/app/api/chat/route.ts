@@ -70,6 +70,8 @@ async function loadRecipeDatabase() {
 loadRecipeDatabase();
 
 // Function to search recipes in CSV database
+// Update the searchRecipes function for more precise matching
+
 function searchRecipes(query: string): any[] | null {
   if (!recipeDatabase || recipeDatabase.length === 0) {
     console.log('⚠️ Recipe database not available, attempting to load it now...');
@@ -83,49 +85,42 @@ function searchRecipes(query: string): any[] | null {
   console.log(`🔍 Searching for recipes matching "${query}" in database of ${recipeDatabase.length} recipes`);
   query = query.toLowerCase().trim();
   
-  // Extract potential ingredients from the query
-  const words = query.split(/\s+/);
-  const possibleIngredients = words.filter(word => word.length > 3);
+  // Extract key terms from the query
+  const keywords = query.split(/\s+/).filter(word => word.length > 2);
+  const exactMatch = keywords.join(' ');
   
-  // Search by title or ingredients
-  const results = recipeDatabase.filter(recipe => {
-    const title = recipe.title?.toLowerCase() || '';
-    const ingredients = typeof recipe.ingredients === 'string' 
-      ? recipe.ingredients.toLowerCase() 
-      : JSON.stringify(recipe.ingredients).toLowerCase();
-    
-    // Direct title match (prioritize exact matches)
-    if (title === query) return true;
-    
-    // Partial title match
-    if (title.includes(query)) return true;
-    
-    // Check if title contains any word from the query that's longer than 3 chars
-    if (possibleIngredients.some(word => title.includes(word))) return true;
-    
-    // Check for individual ingredients
-    if (possibleIngredients.some(ingredient => ingredients.includes(ingredient))) return true;
-    
-    return false;
+  // First try exact title match
+  const exactMatches = recipeDatabase.filter(recipe => {
+    const title = (recipe.title || '').toLowerCase();
+    return title === exactMatch || title.includes(exactMatch);
   });
   
-  if (results.length > 0) {
-    console.log(`✅ Found ${results.length} recipes in database for "${query}"`);
-    // Sort results by relevance - exact title matches first
-    results.sort((a, b) => {
-      const aTitle = a.title.toLowerCase();
-      const bTitle = b.title.toLowerCase();
-      
-      if (aTitle === query && bTitle !== query) return -1;
-      if (bTitle === query && aTitle !== query) return 1;
-      
-      return 0;
-    });
-    
-    return results.slice(0, 3); // Return top 3 matches
+  if (exactMatches.length > 0) {
+    console.log(`✅ Found exact matches for "${query}"`);
+    return exactMatches.slice(0, 3);
   }
   
-  console.log(`❌ No recipes found in database for "${query}"`);
+  // Then try matching key components of the dish name
+  const dishNameMatches = recipeDatabase.filter(recipe => {
+    const title = (recipe.title || '').toLowerCase();
+    
+    // Check if all keywords appear in the title
+    const allKeywordsMatch = keywords.every(keyword => title.includes(keyword));
+    
+    // Check if most keywords appear in the title (at least 70%)
+    const keywordMatchCount = keywords.filter(keyword => title.includes(keyword)).length;
+    const mostKeywordsMatch = keywordMatchCount >= Math.ceil(keywords.length * 0.7);
+    
+    return allKeywordsMatch || mostKeywordsMatch;
+  });
+  
+  if (dishNameMatches.length > 0) {
+    console.log(`✅ Found dish name matches for "${query}"`);
+    return dishNameMatches.slice(0, 3);
+  }
+  
+  // No strong matches found
+  console.log(`❌ No strong recipe matches found in database for "${query}"`);
   return null;
 }
 
@@ -198,7 +193,10 @@ export async function POST(request: NextRequest) {
     const cacheKey = userQuery.toLowerCase();
     if (responseCache.has(cacheKey)) {
       console.log("🔄 Returning cached response");
-      return NextResponse.json({ response: responseCache.get(cacheKey) });
+      return NextResponse.json({ 
+        response: responseCache.get(cacheKey),
+        source: responseCache.get(`${cacheKey}_source`) || "unknown"
+      });
     }
     
     console.log(`📝 User query: "${userQuery}"`);
@@ -224,25 +222,31 @@ export async function POST(request: NextRequest) {
         csvResults.slice(1).forEach((recipe, index) => {
           suggestions += `- ${recipe.title}\n`;
         });
-        suggestions += '\nWould you like to see any of these recipes instead? Just ask and I ll show you the details.';
+        suggestions += '\nWould you like to see any of these recipes instead? Just ask and I\'ll show you the details.';
       }
       
-      const response = `${mainRecipe}${suggestions}\n\nIs there anything specific about this recipe you'd like me to explain? Or would you like suggestions for substitutions or side dishes?`;
+      const response = `${mainRecipe}${suggestions}\n\nIs there anything specific about this recipe you\'d like me to explain? Or would you like suggestions for substitutions or side dishes?`;
       
-      // Cache the response
+      // Cache the response along with source info
       responseCache.set(cacheKey, response);
+      responseCache.set(`${cacheKey}_source`, "database");
       
-      return NextResponse.json({ response });
+      return NextResponse.json({ 
+        response,
+        source: "database"
+      });
     }
     
     // 2. If no results in CSV, use Gemini API
+    console.log(`🌐 No matching recipes in database, using Gemini API for: "${userQuery}"`);
+    
     // Prepare recipe prompt with formatting instructions to mimic ChatGPT style
     const recipePrompt = `You're NutriChef, a helpful cooking and nutrition assistant. 
-    I need you to provide a recipe based on this request: "${userQuery}"
+    I need you to provide a recipe specifically for "${userQuery}" based on this request.
     
     Format your response in a conversational style like ChatGPT would:
-    1. Begin with a friendly, brief personal response about the request (1-2 sentences)
-    2. Format the recipe title as a level 2 heading (##)
+    1. Begin with a statement that you're providing this recipe from your AI knowledge (not from a database)
+    2. Format the recipe title as a level 2 heading (##) and make sure it specifically matches what was requested
     3. Add ingredients list with bullet points
     4. Add numbered step-by-step instructions
     5. Include a brief nutritional note if relevant
@@ -285,8 +289,12 @@ export async function POST(request: NextRequest) {
           
           // Cache the fallback to avoid future API calls
           responseCache.set(cacheKey, fallbackResponse);
+          responseCache.set(`${cacheKey}_source`, "fallback");
           
-          return NextResponse.json({ response: fallbackResponse });
+          return NextResponse.json({ 
+            response: fallbackResponse,
+            source: "fallback"
+          });
         }
         
         const errorData = await response.text();
@@ -301,16 +309,24 @@ export async function POST(request: NextRequest) {
       
       // Cache the response
       responseCache.set(cacheKey, responseText);
+      responseCache.set(`${cacheKey}_source`, "api");
       
-      return NextResponse.json({ response: responseText });
+      return NextResponse.json({ 
+        response: responseText,
+        source: "api"
+      });
     } catch (error) {
       console.error("❌ API call failed, using fallback response", error);
       const fallbackResponse = getFallbackResponse(userQuery);
       
       // Cache the fallback
       responseCache.set(cacheKey, fallbackResponse);
+      responseCache.set(`${cacheKey}_source`, "fallback");
       
-      return NextResponse.json({ response: fallbackResponse });
+      return NextResponse.json({ 
+        response: fallbackResponse,
+        source: "fallback"
+      });
     }
     
   } catch (error: any) {
@@ -320,11 +336,34 @@ export async function POST(request: NextRequest) {
 }
 
 // Fallback responses when API is unavailable
+// Update the fallback response function to be more query-specific
+
 function getFallbackResponse(message: string): string {
   const query = message.toLowerCase();
   
-  if (query.includes("pasta") || query.includes("spaghetti")) {
-    return `I'd love to share a quick garlic pasta recipe with you! This is one of my favorites when I need a delicious meal in a hurry.
+  if (query.includes("half fry") || query.includes("half-fried") || query.includes("sunny side up")) {
+    return `Since I couldn't connect to my recipe database, I'll create a recipe specifically for what you asked.
+
+## Half Fried Eggs (Sunny Side Up)
+
+### Ingredients:
+- 2-3 fresh eggs
+- 1-2 tablespoons butter or oil
+- Salt and freshly ground black pepper, to taste
+- Optional toppings: herbs, chili flakes, grated cheese
+
+### Instructions:
+1. Heat a non-stick skillet over medium-low heat. Add butter or oil and let it melt/heat.
+2. Crack each egg carefully into the pan, keeping yolks intact.
+3. Cook slowly until the whites are completely set but the yolks are still runny, about 2-3 minutes.
+4. Season with salt and pepper.
+5. Serve immediately for the best taste and texture.
+
+The half-fried egg cooking technique keeps the yolk liquid while setting the whites, creating that classic sunny-side-up presentation. Each egg provides about 70-80 calories and 6-7g of protein.
+
+Would you like some suggestions for what to serve with your half fried eggs? Toast, avocado, and roasted tomatoes make excellent companions!`;
+  } else if (query.includes("pasta") || query.includes("spaghetti")) {
+    return `I don't have a specific database match for your request, but I can offer this recipe instead.
 
 ## Quick Garlic Pasta
 
@@ -349,126 +388,22 @@ function getFallbackResponse(message: string): string {
 This simple pasta has about 380 calories per serving with 15g fat, 48g carbs, and 12g protein.
 
 Would you like to know any substitutions you could make or what sides would go well with this dish?`;
-  } else if (query.includes("chicken")) {
-    return `Here's a simple but delicious baked chicken breast recipe that's perfect for a quick dinner!
-
-## Easy Baked Chicken Breast
-
-### Ingredients:
-- 2 boneless, skinless chicken breasts
-- 1 tbsp olive oil
-- 1 tsp paprika
-- 1 tsp garlic powder
-- 1/2 tsp dried oregano
-- 1/2 tsp salt
-- 1/4 tsp black pepper
-- Lemon wedges for serving
-
-### Instructions:
-1. Preheat your oven to 425°F (220°C).
-2. Pat chicken breasts dry with paper towels.
-3. Rub both sides with olive oil.
-4. In a small bowl, mix all the spices together, then coat the chicken evenly on both sides.
-5. Place the seasoned chicken on a baking sheet lined with parchment paper.
-6. Bake for 18-20 minutes until the internal temperature reaches 165°F.
-7. Let the chicken rest for 5 minutes before slicing.
-8. Serve with fresh lemon wedges for squeezing over top.
-
-Each serving provides about 220 calories, 9g fat, 2g carbs, and 35g protein, making this a great high-protein option.
-
-What kind of side dish would you like to serve with this chicken? I can suggest some options that would pair nicely.`;
-  } else if (query.includes("vegetarian") || query.includes("vegan")) {
-    return `I've got a wonderful plant-based recipe for you! This chickpea curry is filling, flavorful, and completely vegan.
-
-## Simple Chickpea Curry
-
-### Ingredients:
-- 2 cans (15 oz each) chickpeas, drained and rinsed
-- 1 onion, diced
-- 2 cloves garlic, minced
-- 1 tbsp ginger, grated
-- 1 can (14 oz) diced tomatoes
-- 1 can (14 oz) coconut milk
-- 2 tbsp curry powder
-- 1 tsp ground cumin
-- 1/2 tsp turmeric
-- Salt to taste
-- Fresh cilantro for garnish
-- Rice for serving
-
-### Instructions:
-1. In a large pot, sauté the onion until translucent (about 5 minutes).
-2. Add garlic and ginger, cooking for 1 minute until fragrant.
-3. Add curry powder, cumin, and turmeric, stirring for 30 seconds to bloom the spices.
-4. Add diced tomatoes, chickpeas, and coconut milk. Stir well to combine.
-5. Simmer for 15-20 minutes, stirring occasionally.
-6. Season with salt to taste.
-7. Serve over rice and garnish with fresh cilantro.
-
-This hearty curry provides about 300 calories per serving with 12g fat, 40g carbs, and 12g protein.
-
-Is this the kind of vegetarian dish you were looking for? I can suggest other plant-based recipes if you'd prefer something different.`;
-  } else if (query.includes("cupcake") || query.includes("citrus")) {
-    return `You're in luck! I've found a delicious Triple-Citrus Cupcake recipe that's bursting with fresh citrus flavors.
-
-## Triple-Citrus Cupcakes
-
-### Ingredients:
-- 3 1/3 cups all-purpose flour
-- 2 teaspoons coarse salt
-- 1 pound (4 sticks) unsalted butter, room temperature
-- 2 cups sugar
-- 3 tablespoons finely grated lemon zest (from 3 lemons)
-- 3 tablespoons finely grated orange zest (from 2 oranges)
-- 3 tablespoons finely grated lime zest, plus more for garnish (from about 3 limes)
-- 1 teaspoon pure vanilla extract
-- 9 large eggs, room temperature
-- Citrus Glaze (made with lime juice and zest)
-
-### Instructions:
-1. Preheat oven to 325°F and line standard muffin tins with paper liners.
-2. Whisk together flour and salt in a bowl.
-3. With an electric mixer on medium-high speed, cream butter and sugar until pale and fluffy, scraping down sides of bowl occasionally.
-4. Add all citrus zests.
-5. Reduce speed to medium, and add vanilla.
-6. Add eggs, three at a time, beating until incorporated, scraping down sides of bowl as needed.
-7. Reduce speed to low and add flour mixture in four batches, beating until completely incorporated after each.
-8. Divide batter evenly among lined cups, filling each three-quarters full; tap pans on countertop once to distribute batter.
-9. Bake, rotating tins halfway through, until a cake tester inserted in centers comes out clean, about 20 minutes.
-10. Transfer tins to wire racks to cool 10 minutes; turn out cupcakes onto racks and let cool completely.
-11. For finishing, dip tops of cupcakes in glaze, then turn over quickly and garnish with zest.
-
-These cupcakes are best eaten the day they are glazed. The bright citrus flavors make them perfect for spring or summer gatherings!
-
-Would you like me to provide a recipe for the citrus glaze as well?`;
-  } else {
-    // Default recipe for any other query
-    return `I'd be happy to share a versatile recipe that you can adapt to whatever ingredients you have on hand!
-
-## Sheet Pan Dinner - Base Recipe
-
-### Ingredients:
-- 1 lb protein of your choice (chicken, tofu, shrimp, or chickpeas)
-- 4 cups mixed vegetables, cut into similar sizes
-- 2 tbsp olive oil
-- 2 tsp Italian seasoning (or your favorite herb blend)
-- 1 tsp garlic powder
-- 1/2 tsp salt
-- 1/4 tsp black pepper
-- Optional: lemon wedges for serving
-
-### Instructions:
-1. Preheat your oven to 425°F (220°C) and line a large baking sheet with parchment paper.
-2. Prepare your protein: cut chicken into chunks, drain and cube tofu, peel shrimp, or drain chickpeas.
-3. In a large bowl, toss vegetables and protein with olive oil and all seasonings until well coated.
-4. Spread everything in a single layer on the baking sheet - don't overcrowd!
-5. Roast for 20-25 minutes until vegetables are tender and protein is cooked through.
-6. If you're using the optional lemon, squeeze fresh juice over everything just before serving.
-
-The nutrition will vary based on your specific ingredients, but this template generally provides a balanced meal with protein, fiber, and healthy fats.
-
-What kind of protein and vegetables do you have available? I can give you specific seasoning suggestions based on your ingredients.`;
   }
+  
+  // Default fallback that acknowledges it's creating a custom recipe for the query
+  return `I don't have a specific recipe for "${message}" in my database, but I can create one for you.
+
+## ${message.charAt(0).toUpperCase() + message.slice(1)}
+
+### Ingredients:
+- Ingredients would vary based on your specific preferences
+- Please ask me to provide more details about this recipe
+
+### Instructions:
+1. This would normally include specific cooking steps for ${message}
+2. I can create a detailed recipe if you're interested
+
+Since this is a custom recipe request, I'd need more information from you. Would you like me to create a detailed recipe for ${message}? Or would you prefer to try a different dish that I might have more information about?`;
 }
 
 // Hardcoded recipes from the CSV file as a fallback

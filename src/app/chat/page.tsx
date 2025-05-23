@@ -136,9 +136,24 @@ export default function ChatPage() {
       }
       
       const data = await response.json();
+      let recipeResponse = data.response;
+      
+      // Add source information to the response if available
+      if (data.source) {
+        let sourceInfo = "";
+        if (data.source === "database") {
+          sourceInfo = "\n\n---\n*Recipe from our curated database*";
+        } else if (data.source === "api") {
+          sourceInfo = "\n\n---\n*Recipe created by AI based on your request*";
+        } else if (data.source === "fallback") {
+          sourceInfo = "\n\n---\n*Recipe from our backup collection*";
+        }
+        recipeResponse += sourceInfo;
+      }
+      
       setMessages(prev => [
         ...prev,
-        { from: 'bot', text: data.response, id: Date.now() }
+        { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
       
     } catch (error) {
