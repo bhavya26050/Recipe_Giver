@@ -27,3 +27,6 @@ button {
 a {
   transition: color 0.2s ease;
 }
+body::-webkit-scrollbar {
+  display: none; /* Hide scrollbar */
+}
