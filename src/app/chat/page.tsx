@@ -95,30 +95,64 @@ export default function ChatPage() {
     return () => unsubscribe();
   }, [router]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
     
     // Add user message
     const messageId = Date.now();
-    setMessages(prev => [...prev, { from: 'user', text: input, id: messageId }]);
-    
-    // Show typing indicator
-    setIsTyping(true);
-    
     const userMessage = input;
+    setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
+    
+    // Clear input and show typing indicator
     setInput('');
+    setIsTyping(true);
     
     // Focus the input after sending
     inputRef.current?.focus();
     
-    // Simulate response after a delay
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      setIsTyping(false);
+      
+      if (!response.ok) {
+        // Handle error
+        const errorData = await response.json();
+        setMessages(prev => [
+          ...prev,
+          { 
+            from: 'bot', 
+            text: `Sorry, I'm having trouble connecting to my recipe brain right now. Please try again later. (Error: ${errorData.error || response.statusText})`, 
+            id: Date.now() 
+          }
+        ]);
+        return;
+      }
+      
+      const data = await response.json();
+      setMessages(prev => [
+        ...prev,
+        { from: 'bot', text: data.response, id: Date.now() }
+      ]);
+      
+    } catch (error) {
       setIsTyping(false);
       setMessages(prev => [
-        ...prev, 
-        { from: 'bot', text: `I'll help you find recipes with "${userMessage}". What type of cuisine are you interested in?`, id: Date.now() }
+        ...prev,
+        { 
+          from: 'bot', 
+          text: 'Sorry, something went wrong while processing your request. Please try again.', 
+          id: Date.now() 
+        }
       ]);
-    }, 1500);
+      console.error('Error calling chat API:', error);
+    }
   };
 
   const toggleVoiceRecording = () => {
@@ -254,6 +288,35 @@ export default function ChatPage() {
       document.body.classList.remove('dark-mode');
     }
   }, [isDarkMode]);
+
+  // Add this function to display formatted markdown
+  function renderFormattedText(text: string) {
+    // Convert markdown-style lists to HTML
+    const withBullets = text.replace(/^- (.+)$/gm, '<li>$1</li>');
+    const withOrderedLists = withBullets.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    
+    // Convert markdown-style headers
+    const withHeaders = withOrderedLists
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    
+    // Handle paragraphs and line breaks
+    const withParagraphs = withHeaders
+      .split('\n\n')
+      .map(para => para.trim() ? `<p>${para}</p>` : '')
+      .join('');
+    
+    // Wrap lists properly
+    const withWrappedLists = withParagraphs
+      .replace(/<li>(.+)<\/li><li>/g, '<li>$1</li><li>')
+      .replace(/<p><li>(.+)<\/li><\/p>/g, '<ul><li>$1</li></ul>');
+    
+    // Replace new lines with <br> tags within paragraphs
+    const withLineBreaks = withWrappedLists.replace(/<p>(.+)\n(.+)<\/p>/g, '<p>$1<br>$2</p>');
+    
+    return withLineBreaks;
+  }
 
   return (
     <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
@@ -437,7 +500,11 @@ export default function ChatPage() {
                                     : 'bg-gray-100 text-gray-800 rounded-tl-none'
                                   : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-none'
                               }`}>
-                                {msg.text}
+                                {msg.from === 'bot' ? (
+                                  <div dangerouslySetInnerHTML={{ __html: renderFormattedText(msg.text) }} />
+                                ) : (
+                                  msg.text
+                                )}
                               </div>
                               
                               <div className="mt-1 flex items-center text-xs text-gray-500 gap-2">
@@ -502,7 +569,7 @@ export default function ChatPage() {
                       </div>
                       
                       <div className="flex-1">
-                        <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} text-gray-800 rounded-tl-none`}>
+                        <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'} rounded-tl-none`}>
                           <div className="flex space-x-2">
                             <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }}></div>
                             <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }}></div>
