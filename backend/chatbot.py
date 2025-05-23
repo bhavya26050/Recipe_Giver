@@ -2,7 +2,7 @@ import time
 import requests
 
 # ✅ Replace this with your actual working Gemini API Key
-API_KEY = "AIzaSyC4yeWyOcfsVGF6IRvDscOPdCoO-tG8XIs"
+API_KEY = "AIzaSyDFvCJpvcFpDiO1mwkI0HuETlnzAGdpz6k"
 
 # Gemini API endpoint (1.5 Pro model)
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={API_KEY}"
