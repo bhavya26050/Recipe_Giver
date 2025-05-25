@@ -3,10 +3,13 @@
 import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
+import { saveUserHistory } from '@/firebase/history';
 import { useRouter } from 'next/navigation';
 import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
          PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, query, orderBy , deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/firebase/firebaseConfig";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([
@@ -85,15 +88,32 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/login');
-      } else {
-        setUserEmail(user.email || '');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      router.push('/login');
+    } else {
+      setUserEmail(user.email || '');
+
+      // Fetch chat history from Firestore
+      const historyRef = collection(db, 'users', user.uid, 'history');
+      const q = query(historyRef, orderBy('timestamp', 'desc'));
+      const querySnapshot = await getDocs(q);
+
+      // Convert Firestore docs to your PreviousChat format
+      const chats = querySnapshot.docs.map((doc, idx) => ({
+        id: doc.id,
+        title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
+        messages: [
+          { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
+          { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
+        ]
+      }));
+
+      setPreviousChats(chats);
+    }
+  });
+  return () => unsubscribe();
+}, [router]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -155,6 +175,13 @@ export default function ChatPage() {
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
+      const user = auth.currentUser;
+    if (user && userMessage && typeof recipeResponse !== "undefined" &&
+  recipeResponse !== null &&
+  recipeResponse !== ""
+) {
+      await saveUserHistory(user.uid, userMessage, recipeResponse);
+    }
       
     } catch (error) {
       setIsTyping(false);
@@ -253,9 +280,21 @@ export default function ChatPage() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const deleteChat = (chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
+  const deleteChat = async(chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
     // Prevent the click from bubbling up to the parent button
     e.stopPropagation();
+    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+
+  // Remove from Firestore
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'history', chatId));
+      console.log("Chat history deleted from Firestore:", chatId);
+    } catch (error) {
+      console.error("Error deleting chat from Firestore:", error);
+    }
+  }
     
     // If this is the current chat, reset to a new chat
     if (chatId === currentChatId) {
