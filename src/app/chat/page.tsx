@@ -3,10 +3,13 @@
 import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
+import { saveUserHistory } from '@/firebase/history';
 import { useRouter } from 'next/navigation';
 import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
          PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, query, orderBy , deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/firebase/firebaseConfig";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([
@@ -85,22 +88,42 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        router.push('/login');
-      } else {
-        setUserEmail(user.email || '');
-      }
-    });
-    return () => unsubscribe();
-  }, [router]);
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      router.push('/login');
+    } else {
+      setUserEmail(user.email || '');
 
+      // Fetch chat history from Firestore
+      const historyRef = collection(db, 'users', user.uid, 'history');
+      const q = query(historyRef, orderBy('timestamp', 'desc'));
+      const querySnapshot = await getDocs(q);
+
+      // Convert Firestore docs to your PreviousChat format
+      const chats = querySnapshot.docs.map((doc, idx) => ({
+        id: doc.id,
+        title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
+        messages: [
+          { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
+          { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
+        ]
+      }));
+
+      setPreviousChats(chats);
+    }
+  });
+  return () => unsubscribe();
+}, [router]);
+
+  // Update the handleSend function to provide better context
   const handleSend = async () => {
     if (!input.trim()) return;
     
     // Add user message
     const messageId = Date.now();
     const userMessage = input;
+    
+    // Add user message to state first for immediate UI feedback
     setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
     
     // Clear input and show typing indicator
@@ -111,24 +134,35 @@ export default function ChatPage() {
     inputRef.current?.focus();
     
     try {
+      // Prepare conversation history (last 8 messages for better context)
+      const conversationHistory = messages
+        .slice(-8)  // Increased to 8 for better context
+        .map(msg => ({ 
+          role: msg.from === 'user' ? 'user' : 'assistant', 
+          content: msg.text.replace(/\*.*?\*/g, '').substring(0, 500) // Remove markdown and limit length
+        }));
+        
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ 
+          message: userMessage,
+          history: conversationHistory 
+        }),
       });
 
       setIsTyping(false);
       
       if (!response.ok) {
-        // Handle error
+        // Enhanced error handling
         const errorData = await response.json();
         setMessages(prev => [
           ...prev,
           { 
             from: 'bot', 
-            text: `Sorry, I'm having trouble connecting to my recipe brain right now. Please try again later. (Error: ${errorData.error || response.statusText})`, 
+            text: `Oops! 😅 I'm having a little trouble right now. But don't worry - I'm still here to help! Try asking again, or let me know if you'd like some quick recipe ideas while I get back on my feet! 🍳`, 
             id: Date.now() 
           }
         ]);
@@ -138,31 +172,42 @@ export default function ChatPage() {
       const data = await response.json();
       let recipeResponse = data.response;
       
-      // Add source information to the response if available
+      // Add source information to the response if available (with emojis for better UX)
       if (data.source) {
         let sourceInfo = "";
         if (data.source === "database") {
-          sourceInfo = "\n\n---\n*Recipe from our curated database*";
+          sourceInfo = "\n\n---\n📚 *Recipe from our curated database*";
         } else if (data.source === "api") {
-          sourceInfo = "\n\n---\n*Recipe created by AI based on your request*";
+          sourceInfo = "\n\n---\n🤖 *Recipe created by AI based on your request*";
         } else if (data.source === "fallback") {
-          sourceInfo = "\n\n---\n*Recipe from our backup collection*";
+          sourceInfo = "\n\n---\n📖 *Recipe from our backup collection*";
         }
-        recipeResponse += sourceInfo;
+        // Don't add source info for conversational responses
+        if (data.source !== "conversation") {
+          recipeResponse += sourceInfo;
+        }
       }
       
+      // Add the bot's response to the messages
       setMessages(prev => [
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
       
+      // Save to history if it was a recipe request (not just casual conversation)
+      const user = auth.currentUser;
+      if (user && userMessage && typeof recipeResponse !== "undefined" &&
+          recipeResponse !== null && recipeResponse !== "" && 
+          data.source !== "conversation") {
+        await saveUserHistory(user.uid, userMessage, recipeResponse);
+      }
     } catch (error) {
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
         { 
           from: 'bot', 
-          text: 'Sorry, something went wrong while processing your request. Please try again.', 
+          text: 'Something went wrong on my end! 😔 But I\'m still here to help you create something delicious. What would you like to cook today? 🍳✨', 
           id: Date.now() 
         }
       ]);
@@ -253,9 +298,21 @@ export default function ChatPage() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const deleteChat = (chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
+  const deleteChat = async(chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
     // Prevent the click from bubbling up to the parent button
     e.stopPropagation();
+    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+
+  // Remove from Firestore
+  const user = auth.currentUser;
+  if (user && chatId !== null) {
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'history', String(chatId)));
+      console.log("Chat history deleted from Firestore:", chatId);
+    } catch (error) {
+      console.error("Error deleting chat from Firestore:", error);
+    }
+  }
     
     // If this is the current chat, reset to a new chat
     if (chatId === currentChatId) {

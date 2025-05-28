@@ -70,8 +70,6 @@ async function loadRecipeDatabase() {
 loadRecipeDatabase();
 
 // Function to search recipes in CSV database
-// Update the searchRecipes function for more precise matching
-
 function searchRecipes(query: string): any[] | null {
   if (!recipeDatabase || recipeDatabase.length === 0) {
     console.log('⚠️ Recipe database not available, attempting to load it now...');
@@ -186,7 +184,7 @@ function formatCSVRecipe(recipe: any): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message } = await request.json();
+    const { message, history = [] } = await request.json();
     const userQuery = message.trim();
     
     // Check cache first
@@ -200,6 +198,99 @@ export async function POST(request: NextRequest) {
     }
     
     console.log(`📝 User query: "${userQuery}"`);
+    
+    // Enhanced conversation detection
+    const isGreeting = /^(hi|hello|hey|greetings|good (morning|afternoon|evening)|howdy|sup|what's up|how are you|how's it going|yo|hiya)/i.test(userQuery);
+    const isQuestion = /^(what|why|how|when|where|who|can you|do you|tell me|could you|would you|should i|is there|are there|explain|describe)/i.test(userQuery);
+    const isSimpleResponse = /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|thanks|thank you|ty|thx|cool|nice|great|awesome|perfect|exactly|absolutely|definitely|maybe|perhaps|possibly|i think|i guess|sounds good|alright)$/i.test(userQuery);
+    const isFarewell = /^(bye|goodbye|see you|farewell|take care|talk later|gtg|gotta go|thanks bye|thank you bye)$/i.test(userQuery);
+    const isCompliment = /^(you're (great|awesome|amazing|helpful|good|the best)|thank you so much|thanks a lot|you rock|love it|love this|this is great|amazing|wonderful|excellent|brilliant|fantastic)$/i.test(userQuery);
+    
+    // Check if it's a recipe-related query
+    const isRecipeQuery = /recipe|make|cook|prepare|bake|grill|roast|fry|boil|steam|sauté|how to make|how to cook|how do i|ingredients|cooking|food|dish|meal|breakfast|lunch|dinner|snack|dessert|curry|pasta|chicken|beef|fish|vegetarian|vegan|paneer|rice|bread|soup|salad|sandwich|pizza|burger|noodles|stir|marinade|sauce|spice|seasoning|nutrition|calories|protein|carbs|healthy|diet/i.test(userQuery);
+    
+    // Enhanced conversational logic
+    if (!isRecipeQuery && (isGreeting || isQuestion || isSimpleResponse || isFarewell || isCompliment)) {
+      console.log("👋 Detected a conversational query, providing conversational response");
+      
+      let conversationalResponse = "";
+      
+      // Greetings
+      if (isGreeting) {
+        const greetingResponses = [
+          "Hello there! 👋 So great to hear from you! What culinary adventure are we embarking on today?",
+          "Hey! 🌟 I'm excited to help you create something delicious. What's cooking?",
+          "Hi! 😊 Ready to whip up something amazing? What kind of flavors are you craving?",
+          "Hello! 🍳 I'm here to be your cooking companion. What can we make together today?",
+          "Hey there! ✨ Whether you're a beginner or a seasoned chef, I'm here to help. What's on your mind?"
+        ];
+        conversationalResponse = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
+      }
+      
+      // Simple responses and agreement
+      else if (userQuery.toLowerCase().includes("yeah") || userQuery.toLowerCase().includes("yes") || userQuery.toLowerCase().includes("sure")) {
+        const agreeResponses = [
+          "Wonderful! 🎉 What kind of dish are you in the mood for? I can help you with anything from quick 5-minute snacks to elaborate gourmet meals!",
+          "Perfect! ✨ Are you looking for something specific like comfort food, healthy options, or maybe something from a particular cuisine?",
+          "Awesome! 🍽️ Tell me more about what you're craving - sweet, savory, spicy, or something completely different?",
+          "Great! 👨‍🍳 Do you have any ingredients you'd like to use up, or should I suggest something completely new?",
+          "Fantastic! 🌟 What's your cooking skill level? I can tailor my suggestions from beginner-friendly to chef-level challenges!"
+        ];
+        conversationalResponse = agreeResponses[Math.floor(Math.random() * agreeResponses.length)];
+      }
+      
+      // Questions about the assistant
+      else if (userQuery.toLowerCase().includes("what is yeah") || userQuery.toLowerCase().includes("what are you")) {
+        conversationalResponse = "I'm NutriChef! 👨‍🍳 Your friendly AI cooking assistant. I'm here to help you discover amazing recipes, provide cooking tips, answer nutrition questions, and make your kitchen adventures more enjoyable. What would you like to explore today?";
+      }
+      
+      // Compliments
+      else if (isCompliment) {
+        const complimentResponses = [
+          "Aww, thank you! 😊 That means a lot! I love helping people discover the joy of cooking. What shall we create next?",
+          "You're so kind! 🌟 It makes me happy to know I'm helping you in the kitchen. Ready for another culinary adventure?",
+          "Thank you so much! 💚 Your enthusiasm for cooking is contagious! What delicious dish should we tackle together?",
+          "That's so sweet of you to say! 😄 I'm here whenever you need cooking inspiration. What's next on your culinary wishlist?"
+        ];
+        conversationalResponse = complimentResponses[Math.floor(Math.random() * complimentResponses.length)];
+      }
+      
+      // Farewells
+      else if (isFarewell) {
+        const farewellResponses = [
+          "Take care! 👋 Happy cooking, and remember - I'm always here when you need recipe inspiration!",
+          "Goodbye! 🌟 Enjoy your cooking adventures, and don't hesitate to come back for more delicious ideas!",
+          "See you later! 🍳 May your kitchen always be filled with amazing aromas and tasty creations!",
+          "Bye for now! ✨ Keep experimenting in the kitchen - you've got this!"
+        ];
+        conversationalResponse = farewellResponses[Math.floor(Math.random() * farewellResponses.length)];
+      }
+      
+      // General questions or unclear intent
+      else if (isQuestion || isSimpleResponse) {
+        const helpfulResponses = [
+          "I'd be happy to help! 🤗 Could you be more specific about what you'd like to know? I'm great with recipes, cooking techniques, ingredient substitutions, and nutrition advice!",
+          "Absolutely! 💫 What cooking topic interests you? Whether it's a specific dish, dietary requirements, or cooking methods - I'm here for it all!",
+          "Of course! 🎯 Feel free to ask me about recipes, cooking tips, meal planning, or anything food-related. What's on your culinary mind?",
+          "I'm here to help! 🌟 Whether you need a recipe, want to learn a cooking technique, or have nutrition questions - just let me know what you're curious about!"
+        ];
+        conversationalResponse = helpfulResponses[Math.floor(Math.random() * helpfulResponses.length)];
+      }
+      
+      // Default friendly response
+      else {
+        conversationalResponse = "Thanks for chatting with me! 😊 I'm your friendly neighborhood cooking assistant. Whether you need recipes, cooking tips, or food inspiration - I'm here to help! What can we cook up together today? 🍳✨";
+      }
+      
+      // Cache the response
+      responseCache.set(cacheKey, conversationalResponse);
+      responseCache.set(`${cacheKey}_source`, "conversation");
+      
+      return NextResponse.json({ 
+        response: conversationalResponse,
+        source: "conversation"
+      });
+    }
     
     // If database is empty, try loading it again
     if (recipeDatabase.length === 0) {
@@ -218,14 +309,15 @@ export async function POST(request: NextRequest) {
       // Include suggestions for other matches if available
       let suggestions = '';
       if (csvResults.length > 1) {
-        suggestions = '\n\n### I also found these other recipes you might like:\n';
+        suggestions = '\n\n### 🌟 I also found these other recipes you might like:\n';
         csvResults.slice(1).forEach((recipe, index) => {
           suggestions += `- ${recipe.title}\n`;
         });
-        suggestions += '\nWould you like to see any of these recipes instead? Just ask and I\'ll show you the details.';
+        suggestions += '\nWould you like to see any of these recipes instead? Just ask and I\'ll show you the details! 😊';
       }
       
-      const response = `${mainRecipe}${suggestions}\n\nIs there anything specific about this recipe you\'d like me to explain? Or would you like suggestions for substitutions or side dishes?`;
+      const personalizedIntro = getPersonalizedIntro(userQuery);
+      const response = `${personalizedIntro}${mainRecipe}${suggestions}\n\n💡 **Need help with this recipe?** I can explain any cooking terms, suggest substitutions, recommend side dishes, or help you adjust portions. Just ask! 👨‍🍳`;
       
       // Cache the response along with source info
       responseCache.set(cacheKey, response);
@@ -237,24 +329,49 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // 2. If no results in CSV, use Gemini API
+    // 2. If no results in CSV, use Gemini API with enhanced prompt
     console.log(`🌐 No matching recipes in database, using Gemini API for: "${userQuery}"`);
     
-    // Prepare recipe prompt with formatting instructions to mimic ChatGPT style
-    const recipePrompt = `You're NutriChef, a helpful cooking and nutrition assistant. 
-    I need you to provide a recipe specifically for "${userQuery}" based on this request.
+    // Enhanced recipe prompt with better conversation context
+    const recipePrompt = `You're NutriChef, a warm, friendly, and knowledgeable cooking assistant with the personality of a helpful friend who loves food. You have expertise in recipes, cooking techniques, nutrition, and food culture from around the world.
+
+The user is asking: "${userQuery}"
+
+Context from conversation history: ${history.length > 0 ? history.map(h => `${h.role}: ${h.content}`).join('\n') : 'This is the start of our conversation.'}
+
+Please respond in a natural, conversational way. Here's how to handle different types of requests:
+
+**For recipe requests:**
+- Start with an enthusiastic, personalized greeting that acknowledges their specific request
+- Use emojis sparingly but effectively (1-2 per response)
+- Create a recipe title as a level 2 heading (## Recipe Name)
+- List ingredients with bullet points, including approximate quantities
+- Number the cooking instructions step by step with clear, easy-to-follow directions
+- Include helpful cooking tips, timing, or technique notes
+- Add a brief nutritional insight or serving suggestion
+- End with an engaging question to encourage further conversation (like asking about dietary preferences, skill level, or what they plan to serve it with)
+
+**For cooking questions (not recipe requests):**
+- Answer helpfully and conversationally
+- Share practical tips and insights
+- Ask follow-up questions to better understand their needs
+- Offer to provide related recipes or additional help
+
+**For general food/nutrition questions:**
+- Provide accurate, helpful information
+- Keep the tone friendly and approachable
+- Offer practical applications or suggestions
+
+**Tone guidelines:**
+- Be warm, encouraging, and enthusiastic about food
+- Use a friendly, conversational style (like talking to a friend)
+- Show genuine interest in helping them succeed in the kitchen
+- Be supportive for beginners and informative for experienced cooks
+- Avoid being overly formal or robotic
+
+Keep your responses well-structured, informative, and engaging. Make cooking feel accessible and fun!`;
     
-    Format your response in a conversational style like ChatGPT would:
-    1. Begin with a statement that you're providing this recipe from your AI knowledge (not from a database)
-    2. Format the recipe title as a level 2 heading (##) and make sure it specifically matches what was requested
-    3. Add ingredients list with bullet points
-    4. Add numbered step-by-step instructions
-    5. Include a brief nutritional note if relevant
-    6. End with a question to encourage further conversation
-    
-    Use Markdown formatting with appropriate headings, lists, and spacing.
-    Keep the tone warm and helpful, as if you're a friend sharing a recipe.`;
-    
+    // Create the proper structure for Gemini API
     const body = {
       contents: [
         {
@@ -263,10 +380,9 @@ export async function POST(request: NextRequest) {
           ]
         }
       ],
-      // Add these parameters to reduce token usage
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1000,
+        temperature: 0.8, // Slightly higher for more natural conversation
+        maxOutputTokens: 1200, // Increased for more detailed responses
       }
     };
     
@@ -299,9 +415,16 @@ export async function POST(request: NextRequest) {
         
         const errorData = await response.text();
         console.error(`❌ API Error (${response.status}): ${errorData}`);
+        
+        // Provide a specific fallback for the user's query
+        const fallbackResponse = getFallbackResponse(userQuery);
+        responseCache.set(cacheKey, fallbackResponse);
+        responseCache.set(`${cacheKey}_source`, "fallback");
+        
         return NextResponse.json({ 
-          error: `Failed to get response from Gemini API: ${response.status} ${response.statusText}` 
-        }, { status: response.status });
+          response: fallbackResponse,
+          source: "fallback"
+        });
       }
       
       const data = await response.json();
@@ -335,35 +458,49 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Fallback responses when API is unavailable
-// Update the fallback response function to be more query-specific
-
+// Enhanced fallback responses for specific queries
 function getFallbackResponse(message: string): string {
   const query = message.toLowerCase();
   
-  if (query.includes("half fry") || query.includes("half-fried") || query.includes("sunny side up")) {
-    return `Since I couldn't connect to my recipe database, I'll create a recipe specifically for what you asked.
+  if (query.includes("paneer") && query.includes("butter") && query.includes("masala")) {
+    return `I'd love to help you make Paneer Butter Masala! Here's a delicious recipe for you:
 
-## Half Fried Eggs (Sunny Side Up)
+## Paneer Butter Masala
 
 ### Ingredients:
-- 2-3 fresh eggs
-- 1-2 tablespoons butter or oil
-- Salt and freshly ground black pepper, to taste
-- Optional toppings: herbs, chili flakes, grated cheese
+- 400g paneer, cubed
+- 2 large tomatoes, chopped
+- 1 large onion, chopped
+- 3-4 garlic cloves
+- 1-inch piece ginger
+- 2-3 green chilies
+- 2 tbsp butter
+- 1 tbsp oil
+- 1 tsp cumin seeds
+- 1 tsp garam masala
+- 1 tsp red chili powder
+- 1/2 tsp turmeric powder
+- 1/2 cup heavy cream
+- 2 tbsp cashews (optional)
+- Salt to taste
+- Fresh coriander for garnish
 
 ### Instructions:
-1. Heat a non-stick skillet over medium-low heat. Add butter or oil and let it melt/heat.
-2. Crack each egg carefully into the pan, keeping yolks intact.
-3. Cook slowly until the whites are completely set but the yolks are still runny, about 2-3 minutes.
-4. Season with salt and pepper.
-5. Serve immediately for the best taste and texture.
+1. Blend tomatoes, onion, garlic, ginger, and green chilies into a smooth paste.
+2. Heat butter and oil in a pan. Add cumin seeds and let them splutter.
+3. Add the tomato-onion paste and cook for 8-10 minutes until oil separates.
+4. Add all the spices and cook for 2 minutes.
+5. Add paneer cubes and gently mix.
+6. Pour in the cream and simmer for 3-4 minutes.
+7. Garnish with fresh coriander and serve hot with rice or naan.
 
-The half-fried egg cooking technique keeps the yolk liquid while setting the whites, creating that classic sunny-side-up presentation. Each egg provides about 70-80 calories and 6-7g of protein.
+This creamy, flavorful dish serves 4 people and is perfect for a special dinner! The paneer provides about 18g of protein per serving.
 
-Would you like some suggestions for what to serve with your half fried eggs? Toast, avocado, and roasted tomatoes make excellent companions!`;
-  } else if (query.includes("pasta") || query.includes("spaghetti")) {
-    return `I don't have a specific database match for your request, but I can offer this recipe instead.
+Would you like any tips for making the paneer extra soft, or suggestions for side dishes to go with this?`;
+  }
+  
+  if (query.includes("pasta") || query.includes("spaghetti")) {
+    return `I don't have a specific database match for your request, but I can offer this delicious pasta recipe instead.
 
 ## Quick Garlic Pasta
 
@@ -391,19 +528,25 @@ Would you like to know any substitutions you could make or what sides would go w
   }
   
   // Default fallback that acknowledges it's creating a custom recipe for the query
-  return `I don't have a specific recipe for "${message}" in my database, but I can create one for you.
+  return `I'm having trouble accessing my full recipe database right now, but I'd still love to help you with "${message}"!
 
-## ${message.charAt(0).toUpperCase() + message.slice(1)}
+## Quick Recipe Suggestion
 
-### Ingredients:
-- Ingredients would vary based on your specific preferences
-- Please ask me to provide more details about this recipe
+While I work on getting you the perfect recipe, here are some general tips for cooking ${message}:
 
-### Instructions:
-1. This would normally include specific cooking steps for ${message}
-2. I can create a detailed recipe if you're interested
+### Basic Approach:
+- Start with fresh, quality ingredients
+- Prepare all ingredients before you start cooking
+- Follow proper cooking temperatures and timing
+- Season gradually and taste as you go
 
-Since this is a custom recipe request, I'd need more information from you. Would you like me to create a detailed recipe for ${message}? Or would you prefer to try a different dish that I might have more information about?`;
+### General Cooking Tips:
+- Always read the full recipe before starting
+- Have all your tools and ingredients ready
+- Don't rush the cooking process
+- Adjust seasoning to your taste preferences
+
+I'd love to provide you with a detailed recipe once my connection is restored. In the meantime, would you like some general cooking tips or suggestions for similar dishes I can help you with right now?`;
 }
 
 // Hardcoded recipes from the CSV file as a fallback
@@ -425,9 +568,22 @@ function getHardcodedRecipes() {
       directions: `["combine all ingredients in slow cooker (6 quarts). bury chicken in vegetables. don't put herbs directly on chicken (because skin is removed later)", "add enough broth and water to cover most of ingredients. liquid level rises a good amount during cooking, so careful with filling the slow cooker too much.", "turn slow cooker on low for 6-7 hours or high 3-4 hours. Note: in my newer Crock-Pot this was enough time, but in my parents' older Crock-Pot 7 hours on low was not enough (don't know how long would be good. we left the veggies a little tough).", "pull out all chicken.", "skim off fat from top with spoon", "pull off skin and remove bones from chicken. shred and return to soup."]`
     },
     {
-      title: "Glazed Carrots",
-      ingredients: `["3 to 4 carrots", "1 1/2 Tbsp. butter", "1/3 c. brown sugar", "grated lemon rind and juice"]`,
-      directions: `["Cook 3 to 4 carrots; cut crosswise in 1-inch pieces.", "Add butter, brown sugar (packed) and grated lemon rind and juice to taste.", "Heat slow, stirring occasionally, until nicely glazed, about 15 minutes.", "Makes 2 to 3 servings."]`
+      title: "Jalapeno Salsa Dona",
+      ingredients: `["12 jalapenos LARGE", "6 cloves roasted garlic", "1/4 cup olive oil", "1 tablespoon rice wine vinegar", "salt TO TASTE"]`,
+      directions: `["Rinse the jalapenos and arrange them on a baking sheet.", "Turn the oven to broil.", "Roast the peppers under the broiler until lightly browned turning so all sides are browned.", "Turn off the heat and let the peppers sit for about 10 minutes.", "Stem the peppers and remove the seeds. Remove the skin.", "Place the peppers, garlic, olive oil and rice wine vinegar in a blender or food processor.", "Blend until smooth and silky. Salt to taste.", "The jalapenos and olive oil will turn into a silky smooth paste.", "Depending on the size of your jalapenos and preference, add more salt and vinegar to taste."]`
     }
   ];
+}
+
+// Add this helper function at the bottom of your file
+function getPersonalizedIntro(query: string): string {
+  const introOptions = [
+    `Perfect! I found exactly what you're looking for with "${query}"! 🎯\n\n`,
+    `Great choice! Here's a wonderful recipe for ${query} that I think you'll love! ✨\n\n`,
+    `Excellent request! I've got the perfect ${query} recipe for you! 🍳\n\n`,
+    `You're in for a treat! This ${query} recipe is one of my favorites to share! 😊\n\n`,
+    `Amazing choice! Let me share this delicious ${query} recipe with you! 🌟\n\n`,
+  ];
+  
+  return introOptions[Math.floor(Math.random() * introOptions.length)];
 }
