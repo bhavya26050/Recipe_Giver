@@ -1,34 +1,125 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+# 🍳 Recipe_Giver
 
-First, run the development server:
+A sleek, modern web application for discovering, sharing, and managing recipes, powered by Next.js and TypeScript.
+
+---
+
+## 📖 About
+
+Recipe_Giver offers an interactive platform where food enthusiasts can browse, search, and contribute recipes of all kinds. Whether you're a home cook or a culinary pro, easily find inspiration or add your signature dishes to the collection.
+
+---
+
+## ✨ Features
+
+- **Recipe Catalog:** Explore a growing library of diverse recipes
+- **Recipe Submission:** Add your own recipes with ingredients, steps, and photos
+- **Search & Filter:** Quickly find recipes by name, ingredient, or type
+- **Responsive UI:** Optimized for desktop and mobile devices
+- **Live Editing:** Instantly preview changes while editing (Next.js hot reload)
+- **Font Optimization:** Seamless font loading with `next/font`
+- **Easy Deployment:** Effortless deployment and hosting via Vercel
+
+---
+
+## 🛠️ Technologies
+
+- **Frontend:** Next.js, React, TypeScript
+- **Styling:** CSS Modules or Tailwind CSS *(customize as needed)*
+- **Fonts:** Geist via `next/font`
+- **Backend/API:** (Optional) Python for data processing or custom APIs
+- **Deployment:** Vercel
+
+---
+
+## 🧰 Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or later)
+- npm or yarn
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/bhavya26050/Recipe_Giver.git
 
+# Navigate into the project directory
+cd Recipe_Giver
+
+# Install dependencies
+npm install
+# or
+yarn install
+
+# Start the development server
+npm run dev
+# or
+yarn dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧪 Development
 
-## Learn More
+### Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```plaintext
+app/                # Next.js app directory (pages, layouts)
+components/         # Reusable React components
+public/             # Static assets (images, icons)
+styles/             # CSS or Tailwind configuration
+utils/              # Utility functions (helpers)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Example Recipe Model
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```typescript
+interface Recipe {
+  id: string;
+  title: string;
+  description: string;
+  ingredients: string[];
+  steps: string[];
+  imageUrl?: string;
+  author?: string;
+  tags?: string[];
+  createdAt: Date;
+}
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🚀 Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# Recipe_Giver
->>>>>>> 1003d5f90df440bd9b7e180af88b663ba3f3dbcf
+Deploy instantly on [Vercel](https://vercel.com/) for best performance and simplicity.
+
+1. Push your code to GitHub.
+2. Import your repository into Vercel.
+3. Configure environment variables if needed.
+4. Enjoy automatic deployments with every push.
+
+See [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! To get started:
+
+1. Fork this repository
+2. Create a new branch (`git checkout -b feature/YourFeature`)
+3. Commit your changes (`git commit -m 'Add new feature'`)
+4. Push to your branch (`git push origin feature/YourFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.  
+See the [LICENSE](LICENSE) file for details.
+```
