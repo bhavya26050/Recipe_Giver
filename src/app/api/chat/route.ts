@@ -122,7 +122,7 @@ function searchRecipes(query: string): any[] | null {
   return null;
 }
 
-// Function to format recipe from CSV data
+// Update the formatCSVRecipe function for better ChatGPT-style formatting
 function formatCSVRecipe(recipe: any): string {
   try {
     const title = recipe.title || 'Recipe';
@@ -132,7 +132,6 @@ function formatCSVRecipe(recipe: any): string {
     try {
       if (recipe.ingredients) {
         if (typeof recipe.ingredients === 'string') {
-          // Handle string representations of arrays like: ["item1", "item2"]
           ingredients = JSON.parse(recipe.ingredients.replace(/'/g, '"'));
         } else if (Array.isArray(recipe.ingredients)) {
           ingredients = recipe.ingredients;
@@ -156,32 +155,39 @@ function formatCSVRecipe(recipe: any): string {
       directions = [recipe.directions];
     }
     
-    // Format the recipe in a nice readable format with ChatGPT-style formatting
+    // Format the recipe with proper ChatGPT-style structure
     let formattedRecipe = `## ${title}\n\n`;
-    formattedRecipe += `I found this delicious recipe for you! Here are the details:\n\n`;
-    formattedRecipe += `### Ingredients:\n`;
     
+    // Ingredients section
+    formattedRecipe += `### 📋 Ingredients:\n\n`;
     ingredients.forEach((ingredient, index) => {
       if (ingredient && ingredient.trim()) {
-        formattedRecipe += `- ${ingredient.trim()}\n`;
+        formattedRecipe += `• ${ingredient.trim()}\n`;
       }
     });
     
-    formattedRecipe += `\n### Instructions:\n`;
-    
+    // Instructions section
+    formattedRecipe += `\n### 👩‍🍳 Instructions:\n\n`;
     directions.forEach((step, index) => {
       if (step && step.trim()) {
-        formattedRecipe += `${index + 1}. ${step.trim()}\n`;
+        formattedRecipe += `**${index + 1}.** ${step.trim()}\n\n`;
       }
     });
+    
+    // Add a helpful tip section
+    formattedRecipe += `### 💡 Chef's Tips:\n\n`;
+    formattedRecipe += `• Read through all steps before starting\n`;
+    formattedRecipe += `• Prep all ingredients beforehand for smoother cooking\n`;
+    formattedRecipe += `• Taste and adjust seasonings as needed\n`;
     
     return formattedRecipe;
   } catch (error) {
     console.error('❌ Error formatting CSV recipe:', error);
-    return `## ${recipe.title || 'Recipe'}\n\nI found this recipe but couldn't format it properly. Let me see if I can find another one for you.`;
+    return `## ${recipe.title || 'Recipe'}\n\nI found this recipe but had trouble formatting it. Let me help you with a different recipe or answer any cooking questions you have!`;
   }
 }
 
+// Update the POST function with stricter food/recipe filtering
 export async function POST(request: NextRequest) {
   try {
     const { message, history = [] } = await request.json();
@@ -201,16 +207,21 @@ export async function POST(request: NextRequest) {
     
     // Enhanced conversation detection
     const isGreeting = /^(hi|hello|hey|greetings|good (morning|afternoon|evening)|howdy|sup|what's up|how are you|how's it going|yo|hiya)/i.test(userQuery);
-    const isQuestion = /^(what|why|how|when|where|who|can you|do you|tell me|could you|would you|should i|is there|are there|explain|describe)/i.test(userQuery);
     const isSimpleResponse = /^(yes|yeah|yep|yup|no|nope|nah|ok|okay|sure|fine|thanks|thank you|ty|thx|cool|nice|great|awesome|perfect|exactly|absolutely|definitely|maybe|perhaps|possibly|i think|i guess|sounds good|alright)$/i.test(userQuery);
     const isFarewell = /^(bye|goodbye|see you|farewell|take care|talk later|gtg|gotta go|thanks bye|thank you bye)$/i.test(userQuery);
     const isCompliment = /^(you're (great|awesome|amazing|helpful|good|the best)|thank you so much|thanks a lot|you rock|love it|love this|this is great|amazing|wonderful|excellent|brilliant|fantastic)$/i.test(userQuery);
     
-    // Check if it's a recipe-related query
-    const isRecipeQuery = /recipe|make|cook|prepare|bake|grill|roast|fry|boil|steam|sauté|how to make|how to cook|how do i|ingredients|cooking|food|dish|meal|breakfast|lunch|dinner|snack|dessert|curry|pasta|chicken|beef|fish|vegetarian|vegan|paneer|rice|bread|soup|salad|sandwich|pizza|burger|noodles|stir|marinade|sauce|spice|seasoning|nutrition|calories|protein|carbs|healthy|diet/i.test(userQuery);
+    // Comprehensive food and cooking related keywords
+    const isFoodRelated = /recipe|make|cook|prepare|bake|grill|roast|fry|boil|steam|sauté|how to make|how to cook|how do i cook|ingredients|cooking|food|dish|meal|breakfast|lunch|dinner|snack|dessert|curry|pasta|chicken|beef|fish|pork|lamb|vegetarian|vegan|paneer|rice|bread|soup|salad|sandwich|pizza|burger|noodles|stir|marinade|sauce|spice|seasoning|nutrition|calories|protein|carbs|healthy|diet|kitchen|chef|culinary|baking|grilling|eating|taste|flavor|delicious|yummy|restaurant|cafe|menu|order|serve|plate|bowl|cup|tablespoon|teaspoon|oven|stove|microwave|refrigerator|freezer|fresh|organic|herbs|vegetables|fruits|meat|dairy|cheese|milk|eggs|oil|butter|sugar|salt|pepper|garlic|onion|tomato|potato|carrot|broccoli|spinach|lettuce|apple|banana|orange|lemon|lime|strawberry|blueberry|avocado|quinoa|pasta|noodles|bread|toast|cereal|oatmeal|smoothie|juice|coffee|tea|wine|beer|water|appetizer|entree|main course|side dish|garnish|dressing|marinade|glaze|topping|filling|crust|dough|batter|frosting|syrup/i.test(userQuery);
     
-    // Enhanced conversational logic
-    if (!isRecipeQuery && (isGreeting || isQuestion || isSimpleResponse || isFarewell || isCompliment)) {
+    // Check for non-food programming/technical queries
+    const isProgrammingQuery = /code|programming|function|algorithm|fibonacci|array|loop|variable|class|method|software|computer|javascript|python|java|html|css|database|server|api|github|git|coding|developer|programming language|syntax|debug|compile|execute|binary|decimal|hexadecimal|bit|byte|memory|cpu|hardware|software|operating system|windows|linux|mac|android|ios|app development|web development|machine learning|artificial intelligence|data structure|sorting|searching|binary tree|linked list|stack|queue|recursion|iteration|conditional|if statement|for loop|while loop|switch case/i.test(userQuery);
+    
+    // Check for other non-food topics
+    const isNonFoodQuery = /weather|sports|politics|news|movie|music|book|travel|math|science|physics|chemistry|biology|history|geography|literature|art|fashion|technology|business|finance|stock|investment|cryptocurrency|bitcoin|car|vehicle|transport|airplane|train|bus|hotel|vacation|holiday|school|university|education|job|career|interview|salary|money|bank|insurance|health|medicine|doctor|hospital|pharmacy|exercise|gym|fitness|workout|yoga|meditation|psychology|therapy|relationship|dating|marriage|family|children|baby|pet|dog|cat|bird|fish|plant|garden|flower|tree|house|apartment|furniture|decoration|cleaning|laundry|shopping|clothes|shoes|jewelry|makeup|skincare|haircare|game|video game|smartphone|laptop|tablet|internet|social media|facebook|instagram|twitter|youtube|netflix|spotify|amazon|google|apple|microsoft|tesla|phone number|address|email|password|login|account|profile|settings|download|upload|install|update|backup|virus|security|privacy|encryption|blockchain|quantum|space|nasa|mars|moon|planet|star|universe|galaxy|solar system|climate change|global warming|environment|pollution|recycling|energy|electricity|solar power|wind power|nuclear|fossil fuel|oil|gas|coal/i.test(userQuery);
+    
+    // Enhanced logic for handling queries
+    if (isGreeting || isSimpleResponse || isFarewell || isCompliment) {
       console.log("👋 Detected a conversational query, providing conversational response");
       
       let conversationalResponse = "";
@@ -218,11 +229,11 @@ export async function POST(request: NextRequest) {
       // Greetings
       if (isGreeting) {
         const greetingResponses = [
-          "Hello there! 👋 So great to hear from you! What culinary adventure are we embarking on today?",
-          "Hey! 🌟 I'm excited to help you create something delicious. What's cooking?",
-          "Hi! 😊 Ready to whip up something amazing? What kind of flavors are you craving?",
-          "Hello! 🍳 I'm here to be your cooking companion. What can we make together today?",
-          "Hey there! ✨ Whether you're a beginner or a seasoned chef, I'm here to help. What's on your mind?"
+          "Hello there! 👋 I'm NutriChef, your dedicated cooking assistant. I'm here to help you with recipes, cooking techniques, and food-related questions. What delicious dish would you like to create today?",
+          "Hey! 🌟 Welcome to NutriChef! I specialize in all things food and cooking. Whether you need a recipe, cooking tips, or nutrition advice, I'm your culinary companion. What can I cook up for you?",
+          "Hi! 😊 I'm excited to help you on your culinary journey! I can assist with recipes, cooking methods, ingredient substitutions, and food-related questions. What's cooking in your mind today?",
+          "Hello! 🍳 I'm NutriChef, and I live and breathe food! From simple snacks to gourmet meals, I'm here to guide your cooking adventures. What would you like to explore in the kitchen?",
+          "Hey there! ✨ Ready to create something amazing in the kitchen? I'm here to help with recipes, cooking tips, nutrition advice, and all your food-related questions. What shall we make together?"
         ];
         conversationalResponse = greetingResponses[Math.floor(Math.random() * greetingResponses.length)];
       }
@@ -230,27 +241,22 @@ export async function POST(request: NextRequest) {
       // Simple responses and agreement
       else if (userQuery.toLowerCase().includes("yeah") || userQuery.toLowerCase().includes("yes") || userQuery.toLowerCase().includes("sure")) {
         const agreeResponses = [
-          "Wonderful! 🎉 What kind of dish are you in the mood for? I can help you with anything from quick 5-minute snacks to elaborate gourmet meals!",
-          "Perfect! ✨ Are you looking for something specific like comfort food, healthy options, or maybe something from a particular cuisine?",
-          "Awesome! 🍽️ Tell me more about what you're craving - sweet, savory, spicy, or something completely different?",
-          "Great! 👨‍🍳 Do you have any ingredients you'd like to use up, or should I suggest something completely new?",
-          "Fantastic! 🌟 What's your cooking skill level? I can tailor my suggestions from beginner-friendly to chef-level challenges!"
+          "Wonderful! 🎉 What type of cuisine are you interested in? I can help with everything from comfort food to international dishes, healthy meals to indulgent treats!",
+          "Perfect! ✨ Are you looking for something quick and easy, or do you have time for a more elaborate cooking project? I can suggest recipes based on your available time and skill level.",
+          "Awesome! 🍽️ Tell me what you're in the mood for - are you craving something specific, or would you like me to suggest recipes based on ingredients you have?",
+          "Great! 👨‍🍳 What's your cooking experience like? I can tailor my suggestions from beginner-friendly recipes to more advanced culinary challenges.",
+          "Fantastic! 🌟 Do you have any dietary preferences or restrictions I should know about? I can help with vegetarian, vegan, gluten-free, or any other specific dietary needs."
         ];
         conversationalResponse = agreeResponses[Math.floor(Math.random() * agreeResponses.length)];
-      }
-      
-      // Questions about the assistant
-      else if (userQuery.toLowerCase().includes("what is yeah") || userQuery.toLowerCase().includes("what are you")) {
-        conversationalResponse = "I'm NutriChef! 👨‍🍳 Your friendly AI cooking assistant. I'm here to help you discover amazing recipes, provide cooking tips, answer nutrition questions, and make your kitchen adventures more enjoyable. What would you like to explore today?";
       }
       
       // Compliments
       else if (isCompliment) {
         const complimentResponses = [
-          "Aww, thank you! 😊 That means a lot! I love helping people discover the joy of cooking. What shall we create next?",
-          "You're so kind! 🌟 It makes me happy to know I'm helping you in the kitchen. Ready for another culinary adventure?",
-          "Thank you so much! 💚 Your enthusiasm for cooking is contagious! What delicious dish should we tackle together?",
-          "That's so sweet of you to say! 😄 I'm here whenever you need cooking inspiration. What's next on your culinary wishlist?"
+          "Thank you so much! 😊 I'm passionate about helping people discover the joy of cooking. What culinary adventure would you like to embark on next?",
+          "You're so kind! 🌟 It makes me happy to help fellow food enthusiasts. Ready to explore some delicious recipes together?",
+          "Aww, thank you! 💚 I love sharing my culinary knowledge. What type of dish or cooking technique would you like to learn about?",
+          "That means the world to me! 😄 I'm here to make cooking fun and accessible. What can I help you create in the kitchen today?"
         ];
         conversationalResponse = complimentResponses[Math.floor(Math.random() * complimentResponses.length)];
       }
@@ -258,28 +264,17 @@ export async function POST(request: NextRequest) {
       // Farewells
       else if (isFarewell) {
         const farewellResponses = [
-          "Take care! 👋 Happy cooking, and remember - I'm always here when you need recipe inspiration!",
-          "Goodbye! 🌟 Enjoy your cooking adventures, and don't hesitate to come back for more delicious ideas!",
-          "See you later! 🍳 May your kitchen always be filled with amazing aromas and tasty creations!",
-          "Bye for now! ✨ Keep experimenting in the kitchen - you've got this!"
+          "Take care and happy cooking! 👋 Remember, I'm always here when you need recipe inspiration or cooking guidance. Enjoy your culinary adventures!",
+          "Goodbye! 🌟 May your kitchen be filled with delicious aromas and successful cooking experiments. Come back anytime for more food wisdom!",
+          "See you later! 🍳 Keep exploring new flavors and recipes. I'll be here whenever you need cooking support or food inspiration!",
+          "Bye for now! ✨ Wishing you many delicious meals ahead. Don't hesitate to return for more culinary guidance!"
         ];
         conversationalResponse = farewellResponses[Math.floor(Math.random() * farewellResponses.length)];
       }
       
-      // General questions or unclear intent
-      else if (isQuestion || isSimpleResponse) {
-        const helpfulResponses = [
-          "I'd be happy to help! 🤗 Could you be more specific about what you'd like to know? I'm great with recipes, cooking techniques, ingredient substitutions, and nutrition advice!",
-          "Absolutely! 💫 What cooking topic interests you? Whether it's a specific dish, dietary requirements, or cooking methods - I'm here for it all!",
-          "Of course! 🎯 Feel free to ask me about recipes, cooking tips, meal planning, or anything food-related. What's on your culinary mind?",
-          "I'm here to help! 🌟 Whether you need a recipe, want to learn a cooking technique, or have nutrition questions - just let me know what you're curious about!"
-        ];
-        conversationalResponse = helpfulResponses[Math.floor(Math.random() * helpfulResponses.length)];
-      }
-      
       // Default friendly response
       else {
-        conversationalResponse = "Thanks for chatting with me! 😊 I'm your friendly neighborhood cooking assistant. Whether you need recipes, cooking tips, or food inspiration - I'm here to help! What can we cook up together today? 🍳✨";
+        conversationalResponse = "Thanks for chatting with me! 😊 I'm NutriChef, your dedicated cooking companion. I'm here to help with recipes, cooking techniques, nutrition advice, and all things food-related. What culinary creation shall we work on together? 🍳✨";
       }
       
       // Cache the response
@@ -289,6 +284,48 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         response: conversationalResponse,
         source: "conversation"
+      });
+    }
+    
+    // Check if the query is programming/technical or completely unrelated to food
+    if (isProgrammingQuery || (isNonFoodQuery && !isFoodRelated)) {
+      console.log("🚫 Detected non-food related query, redirecting to food topics");
+      
+      const redirectResponses = [
+        "I appreciate your question, but I'm NutriChef - a specialized cooking and recipe assistant! 🍳 I focus exclusively on food, recipes, cooking techniques, and nutrition. \n\nIs there anything delicious you'd like to cook today? I can help you find recipes, explain cooking methods, or answer nutrition questions!",
+        
+        "That's an interesting question, but I'm designed specifically to help with cooking and food-related topics! 👨‍🍳 \n\nHow about we explore something tasty instead? I can suggest recipes based on ingredients you have, help with cooking techniques, or provide nutrition advice. What sounds good to you?",
+        
+        "I'd love to help, but my expertise is all about food and cooking! 🌟 I'm your go-to assistant for recipes, cooking tips, meal planning, and nutrition guidance.\n\nWhat kind of delicious dish would you like to create today? I'm here to make your cooking journey amazing!",
+        
+        "Thanks for the question! However, I'm NutriChef, and I specialize in all things culinary! 🍽️ From recipes and cooking techniques to nutrition advice and meal planning - that's where I shine.\n\nLet's talk food! What are you in the mood to cook or learn about today?"
+      ];
+      
+      const redirectResponse = redirectResponses[Math.floor(Math.random() * redirectResponses.length)];
+      
+      // Cache the response
+      responseCache.set(cacheKey, redirectResponse);
+      responseCache.set(`${cacheKey}_source`, "redirect");
+      
+      return NextResponse.json({ 
+        response: redirectResponse,
+        source: "redirect"
+      });
+    }
+    
+    // If it's not food-related but also not clearly programming/non-food, give a gentle redirect
+    if (!isFoodRelated) {
+      console.log("❓ Unclear query, gently redirecting to food topics");
+      
+      const gentleRedirect = "I'm NutriChef, your specialized cooking assistant! 🍳 I'm here to help with recipes, cooking techniques, nutrition, and all things food-related.\n\nWhat would you like to cook today? I can help you find the perfect recipe, explain cooking methods, or answer any food and nutrition questions you might have! 😊";
+      
+      // Cache the response
+      responseCache.set(cacheKey, gentleRedirect);
+      responseCache.set(`${cacheKey}_source`, "redirect");
+      
+      return NextResponse.json({ 
+        response: gentleRedirect,
+        source: "redirect"
       });
     }
     
@@ -309,15 +346,15 @@ export async function POST(request: NextRequest) {
       // Include suggestions for other matches if available
       let suggestions = '';
       if (csvResults.length > 1) {
-        suggestions = '\n\n### 🌟 I also found these other recipes you might like:\n';
+        suggestions = '\n\n---\n\n### 🌟 Other recipes you might enjoy:\n\n';
         csvResults.slice(1).forEach((recipe, index) => {
-          suggestions += `- ${recipe.title}\n`;
+          suggestions += `**${index + 1}.** ${recipe.title}\n`;
         });
-        suggestions += '\nWould you like to see any of these recipes instead? Just ask and I\'ll show you the details! 😊';
+        suggestions += '\n*Would you like to see any of these recipes? Just ask!* 😊';
       }
       
       const personalizedIntro = getPersonalizedIntro(userQuery);
-      const response = `${personalizedIntro}${mainRecipe}${suggestions}\n\n💡 **Need help with this recipe?** I can explain any cooking terms, suggest substitutions, recommend side dishes, or help you adjust portions. Just ask! 👨‍🍳`;
+      const response = `${personalizedIntro}${mainRecipe}${suggestions}\n\n---\n\n💡 **Need help with this recipe?** \nI can explain cooking terms, suggest ingredient substitutions, recommend side dishes, help adjust portions, or answer any cooking questions! 👨‍🍳`;
       
       // Cache the response along with source info
       responseCache.set(cacheKey, response);
@@ -332,44 +369,43 @@ export async function POST(request: NextRequest) {
     // 2. If no results in CSV, use Gemini API with enhanced prompt
     console.log(`🌐 No matching recipes in database, using Gemini API for: "${userQuery}"`);
     
-    // Enhanced recipe prompt with better conversation context
-    const recipePrompt = `You're NutriChef, a warm, friendly, and knowledgeable cooking assistant with the personality of a helpful friend who loves food. You have expertise in recipes, cooking techniques, nutrition, and food culture from around the world.
+    // Enhanced recipe prompt with better formatting instructions
+    const recipePrompt = `You are NutriChef, a warm, friendly, and knowledgeable cooking assistant. You specialize exclusively in food, recipes, cooking techniques, and nutrition.
 
 The user is asking: "${userQuery}"
 
-Context from conversation history: ${history.length > 0 ? history.map(h => `${h.role}: ${h.content}`).join('\n') : 'This is the start of our conversation.'}
+IMPORTANT: Only respond to food and cooking related queries. If the request is not about food, recipes, cooking, or nutrition, politely redirect them to ask about culinary topics.
 
-Please respond in a natural, conversational way. Here's how to handle different types of requests:
+For food-related requests, follow this structure:
 
 **For recipe requests:**
-- Start with an enthusiastic, personalized greeting that acknowledges their specific request
-- Use emojis sparingly but effectively (1-2 per response)
-- Create a recipe title as a level 2 heading (## Recipe Name)
-- List ingredients with bullet points, including approximate quantities
-- Number the cooking instructions step by step with clear, easy-to-follow directions
-- Include helpful cooking tips, timing, or technique notes
-- Add a brief nutritional insight or serving suggestion
-- End with an engaging question to encourage further conversation (like asking about dietary preferences, skill level, or what they plan to serve it with)
+1. Start with a brief, enthusiastic greeting that acknowledges their request
+2. Create a clear recipe title using ## heading
+3. List ingredients with bullet points, including quantities
+4. Provide numbered step-by-step instructions
+5. Include helpful cooking tips or techniques
+6. Add nutritional information if relevant
+7. End with an encouraging question to continue the conversation
 
-**For cooking questions (not recipe requests):**
-- Answer helpfully and conversationally
-- Share practical tips and insights
-- Ask follow-up questions to better understand their needs
-- Offer to provide related recipes or additional help
+**For cooking questions:**
+- Provide clear, helpful answers
+- Share practical tips and techniques
+- Offer related recipe suggestions when appropriate
 
-**For general food/nutrition questions:**
-- Provide accurate, helpful information
-- Keep the tone friendly and approachable
-- Offer practical applications or suggestions
+**Formatting guidelines:**
+- Use proper markdown formatting
+- Structure responses with clear sections
+- Include helpful emojis sparingly (1-2 per response)
+- Keep tone conversational but informative
+- Make instructions easy to follow
 
-**Tone guidelines:**
-- Be warm, encouraging, and enthusiastic about food
-- Use a friendly, conversational style (like talking to a friend)
-- Show genuine interest in helping them succeed in the kitchen
-- Be supportive for beginners and informative for experienced cooks
-- Avoid being overly formal or robotic
+**Tone:**
+- Warm and encouraging
+- Professional but friendly
+- Supportive for all skill levels
+- Enthusiastic about food and cooking
 
-Keep your responses well-structured, informative, and engaging. Make cooking feel accessible and fun!`;
+Remember: You are a culinary expert focused solely on helping people cook, eat well, and enjoy food!`;
     
     // Create the proper structure for Gemini API
     const body = {
@@ -381,8 +417,8 @@ Keep your responses well-structured, informative, and engaging. Make cooking fee
         }
       ],
       generationConfig: {
-        temperature: 0.8, // Slightly higher for more natural conversation
-        maxOutputTokens: 1200, // Increased for more detailed responses
+        temperature: 0.7,
+        maxOutputTokens: 1200,
       }
     };
     
@@ -398,12 +434,10 @@ Keep your responses well-structured, informative, and engaging. Make cooking fee
       });
       
       if (!response.ok) {
-        // If we hit rate limits, provide a fallback response
         if (response.status === 429) {
           console.log("⚠️ Rate limit hit, using fallback response");
           const fallbackResponse = getFallbackResponse(userQuery);
           
-          // Cache the fallback to avoid future API calls
           responseCache.set(cacheKey, fallbackResponse);
           responseCache.set(`${cacheKey}_source`, "fallback");
           
@@ -416,7 +450,6 @@ Keep your responses well-structured, informative, and engaging. Make cooking fee
         const errorData = await response.text();
         console.error(`❌ API Error (${response.status}): ${errorData}`);
         
-        // Provide a specific fallback for the user's query
         const fallbackResponse = getFallbackResponse(userQuery);
         responseCache.set(cacheKey, fallbackResponse);
         responseCache.set(`${cacheKey}_source`, "fallback");
@@ -442,7 +475,6 @@ Keep your responses well-structured, informative, and engaging. Make cooking fee
       console.error("❌ API call failed, using fallback response", error);
       const fallbackResponse = getFallbackResponse(userQuery);
       
-      // Cache the fallback
       responseCache.set(cacheKey, fallbackResponse);
       responseCache.set(`${cacheKey}_source`, "fallback");
       
@@ -575,14 +607,15 @@ function getHardcodedRecipes() {
   ];
 }
 
-// Add this helper function at the bottom of your file
+// Update the helper function for better personalized intros
+
 function getPersonalizedIntro(query: string): string {
   const introOptions = [
-    `Perfect! I found exactly what you're looking for with "${query}"! 🎯\n\n`,
-    `Great choice! Here's a wonderful recipe for ${query} that I think you'll love! ✨\n\n`,
-    `Excellent request! I've got the perfect ${query} recipe for you! 🍳\n\n`,
-    `You're in for a treat! This ${query} recipe is one of my favorites to share! 😊\n\n`,
-    `Amazing choice! Let me share this delicious ${query} recipe with you! 🌟\n\n`,
+    `Perfect! I found exactly what you're looking for! 🎯\n\n`,
+    `Great choice! Here's a delicious recipe that I think you'll love: ✨\n\n`,
+    `Excellent! I've got the perfect recipe for you: 🍳\n\n`,
+    `You're in for a treat! Here's one of my favorite recipes to share: 😊\n\n`,
+    `Amazing choice! Let me share this wonderful recipe with you: 🌟\n\n`,
   ];
   
   return introOptions[Math.floor(Math.random() * introOptions.length)];
