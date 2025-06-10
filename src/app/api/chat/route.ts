@@ -46,25 +46,36 @@ async function loadRecipeDatabase() {
 // Immediate load attempt
 loadRecipeDatabase();
 
-// STEP 1: Intent Extraction - Extract recipe name from user query
+// STEP 1: Improved Intent Extraction - Extract recipe name from user query
 async function extractRecipeName(userQuery: string): Promise<string | null> {
-  const extractionPrompt = `Extract just the name of the dish/recipe from this user query. Respond ONLY with the dish name, nothing else.
+  const extractionPrompt = `Extract ONLY the exact dish name from this user query. Be very specific and precise.
 
 User query: "${userQuery}"
+
+Rules:
+- Extract the complete dish name including all words that describe the dish
+- Don't add extra words
+- Don't abbreviate
+- If multiple dishes are mentioned, pick the main one
+- Return the dish name in lowercase
 
 Examples:
 - "How do I make butter chicken?" → "butter chicken"
 - "Recipe for chocolate cake please" → "chocolate cake"
-- "Can you tell me biryani recipe?" → "biryani"
-- "I want to cook pasta" → "pasta"
+- "Can you tell me paneer butter masala recipe?" → "paneer butter masala"
+- "I want to cook chicken biryani" → "chicken biryani"
+- "Show me pasta carbonara" → "pasta carbonara"
+- "Make me some fried rice" → "fried rice"
 
-If no clear dish name is found, respond with "NONE".`;
+If no clear dish name is found, respond with "NONE".
+
+Dish name:`;
 
   const body = {
     contents: [{ parts: [{ text: extractionPrompt }] }],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 50,
+      maxOutputTokens: 20,
     }
   };
 
@@ -78,9 +89,12 @@ If no clear dish name is found, respond with "NONE".`;
     if (!response.ok) throw new Error(`API Error: ${response.status}`);
     
     const data = await response.json();
-    const dishName = data.candidates[0].content.parts[0].text.trim().toLowerCase();
+    let dishName = data.candidates[0].content.parts[0].text.trim().toLowerCase();
     
-    if (dishName === 'none' || dishName.length < 2) {
+    // Clean up the response
+    dishName = dishName.replace(/^dish name:\s*/i, '').replace(/['"]/g, '').trim();
+    
+    if (dishName === 'none' || dishName.length < 3) {
       return null;
     }
     
@@ -88,11 +102,28 @@ If no clear dish name is found, respond with "NONE".`;
     return dishName;
   } catch (error) {
     console.error('❌ Failed to extract recipe name:', error);
+    
+    // Fallback: Simple regex extraction if API fails
+    const query = userQuery.toLowerCase();
+    const dishPatterns = [
+      /(?:recipe for|make|cook|prepare)\s+(.+?)(?:\s+recipe|\s+please|$)/,
+      /(?:how to make|how do i make)\s+(.+?)(?:\s+recipe|$|\?)/,
+      /(paneer butter masala|butter chicken|chicken biryani|pasta carbonara|fried rice|chocolate cake)/,
+    ];
+    
+    for (const pattern of dishPatterns) {
+      const match = query.match(pattern);
+      if (match && match[1]) {
+        console.log(`🔄 Fallback extraction: "${match[1]}" from query: "${userQuery}"`);
+        return match[1].trim();
+      }
+    }
+    
     return null;
   }
 }
 
-// STEP 2: Local CSV Search
+// STEP 2: Much more strict Local CSV Search
 function searchRecipeInCSV(dishName: string): any | null {
   if (!recipeDatabase || recipeDatabase.length === 0) {
     console.log('⚠️ Recipe database not available');
@@ -101,29 +132,62 @@ function searchRecipeInCSV(dishName: string): any | null {
   
   console.log(`🔍 Searching for "${dishName}" in database of ${recipeDatabase.length} recipes`);
   
-  const searchTerm = dishName.toLowerCase();
+  const searchTerm = dishName.toLowerCase().trim();
   
-  // Try exact match first
+  // Try EXACT match first (very strict)
   let match = recipeDatabase.find(recipe => {
-    const title = (recipe.title || '').toLowerCase();
-    return title === searchTerm || title.includes(searchTerm);
+    const title = (recipe.title || '').toLowerCase().trim();
+    return title === searchTerm;
   });
   
-  // If no exact match, try partial matching with keywords
-  if (!match) {
-    const keywords = searchTerm.split(/\s+/).filter(word => word.length > 2);
-    match = recipeDatabase.find(recipe => {
-      const title = (recipe.title || '').toLowerCase();
-      return keywords.some(keyword => title.includes(keyword));
-    });
-  }
-  
   if (match) {
-    console.log(`✅ Found recipe in CSV: "${match.title}"`);
+    console.log(`✅ Found EXACT match in CSV: "${match.title}"`);
     return match;
   }
   
-  console.log(`❌ No recipe found in CSV for "${dishName}"`);
+  // Try very specific partial match (must match main keywords)
+  const dishKeywords = searchTerm.split(/\s+/).filter(word => word.length > 2);
+  
+  if (dishKeywords.length >= 2) {
+    match = recipeDatabase.find(recipe => {
+      const title = (recipe.title || '').toLowerCase();
+      // ALL keywords must be present for a match
+      return dishKeywords.every(keyword => title.includes(keyword));
+    });
+    
+    if (match) {
+      console.log(`✅ Found specific match in CSV: "${match.title}" for "${dishName}"`);
+      return match;
+    }
+  }
+  
+  // For Indian dishes, be even more specific
+  if (searchTerm.includes('paneer') || searchTerm.includes('butter') || searchTerm.includes('masala')) {
+    match = recipeDatabase.find(recipe => {
+      const title = (recipe.title || '').toLowerCase();
+      return title.includes('paneer') && title.includes('butter') && title.includes('masala');
+    });
+    
+    if (match) {
+      console.log(`✅ Found Indian dish match in CSV: "${match.title}"`);
+      return match;
+    }
+  }
+  
+  // For biryani
+  if (searchTerm.includes('biryani')) {
+    match = recipeDatabase.find(recipe => {
+      const title = (recipe.title || '').toLowerCase();
+      return title.includes('biryani');
+    });
+    
+    if (match) {
+      console.log(`✅ Found biryani match in CSV: "${match.title}"`);
+      return match;
+    }
+  }
+  
+  console.log(`❌ No specific recipe found in CSV for "${dishName}" - will use AI generation`);
   return null;
 }
 
@@ -331,7 +395,7 @@ export async function POST(request: NextRequest) {
     // Non-food topic detection
     const isNonFoodQuery = /code|programming|fibonacci|algorithm|math|science|weather|sports|politics|movie|music|technology|computer|software|car|travel|job|school|game|phone|internet|social media/i.test(userQuery);
     
-    // Handle conversational responses FIRST
+    // Handle conversational responses FIRST (keep existing logic)
     if (isGreeting) {
       const greetingResponses = [
         "Hello! 👋 I'm doing great, thank you! I'm NutriChef, your friendly cooking companion. I'm here to help with recipes, cooking techniques, and nutrition advice. What delicious creation would you like to explore today?",
@@ -399,17 +463,19 @@ export async function POST(request: NextRequest) {
     const dishName = await extractRecipeName(userQuery);
     
     if (!dishName) {
-      const clarificationResponse = "I'd love to help you with a recipe! Could you be more specific about what dish you'd like to make?\n\nFor example:\n• \"How to make chicken biryani\"\n• \"Recipe for chocolate cake\"\n• \"Show me pasta recipes\"\n\nWhat would you like to cook today? 😊";
+      const clarificationResponse = "I'd love to help you with a recipe! Could you be more specific about what dish you'd like to make?\n\nFor example:\n• \"How to make chicken biryani\"\n• \"Recipe for paneer butter masala\"\n• \"Show me pasta recipes\"\n\nWhat would you like to cook today? 😊";
       
       responseCache.set(cacheKey, clarificationResponse);
       return NextResponse.json({ response: clarificationResponse, source: "clarification" });
     }
     
-    // STEP 2: Search in local CSV database
+    console.log(`🎯 Extracted dish: "${dishName}"`);
+    
+    // STEP 2: Search in local CSV database (more strict now)
     const csvRecipe = searchRecipeInCSV(dishName);
     
     if (csvRecipe) {
-      console.log("✅ Found recipe in CSV, formatting and returning");
+      console.log(`✅ Found recipe in CSV: "${csvRecipe.title}" - formatting and returning`);
       const formattedCSVRecipe = formatCSVRecipe(csvRecipe);
       
       responseCache.set(cacheKey, formattedCSVRecipe);
@@ -420,15 +486,15 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // STEP 3: Generate recipe using Gemini AI
-    console.log("🤖 No CSV match, generating recipe with Gemini AI");
+    // STEP 3: Generate recipe using Gemini AI (this should happen for paneer butter masala)
+    console.log(`🤖 No CSV match found for "${dishName}" - generating recipe with Gemini AI`);
     
     try {
       let geminiRecipe = await generateRecipeWithGemini(dishName, userQuery);
       
       // STEP 4: Format the response if needed (optional)
       if (!geminiRecipe.includes('### 🥘 Ingredients:')) {
-        console.log("🔧 Formatting Gemini response");
+        console.log("🔧 Formatting Gemini response for better structure");
         geminiRecipe = await formatGeminiResponse(geminiRecipe);
       }
       
@@ -440,31 +506,31 @@ export async function POST(request: NextRequest) {
       });
       
     } catch (error) {
-      console.error("❌ Gemini generation failed, using fallback");
+      console.error("❌ Gemini generation failed, using enhanced fallback");
       
       // Enhanced fallback based on extracted dish name
       const fallbackResponse = `I'd love to help you make ${dishName}! 🍳
 
-## ${dishName.charAt(0).toUpperCase() + dishName.slice(1)} Recipe
+## ${dishName.charAt(0).toUpperCase() + dishName.slice(1)}
 
-I'm having trouble accessing my full recipe knowledge right now, but here's a general approach for making ${dishName}:
+*I'm having some trouble accessing my AI recipe generator right now, but I still want to help you!*
 
-### 🥘 Basic Approach:
-• Start with fresh, quality ingredients
-• Prepare all ingredients before cooking (mise en place)
+### 🥘 What You'll Generally Need:
+• Fresh, quality ingredients specific to ${dishName}
+• Proper cooking equipment and utensils
+• The right spices and seasonings
+• Patience for the best results
+
+### 👨‍🍳 General Approach:
+• Prepare all ingredients before starting (mise en place)
 • Follow proper cooking temperatures and timing
 • Season gradually and taste as you go
-
-### 👨‍🍳 General Cooking Tips:
-• Always read through instructions before starting
-• Have all tools and ingredients ready
 • Don't rush the cooking process
-• Adjust seasoning to your taste preferences
 
 ### 💡 Chef's Note:
-I'd love to provide you with a detailed recipe once my connection is restored. In the meantime, would you like some specific cooking tips for ${dishName} or suggestions for similar dishes?
+I'd love to provide you with a detailed ${dishName} recipe once my AI connection is restored. This is definitely a dish I can help you with!
 
-**What aspect of cooking ${dishName} would you like to know more about?** 😊`;
+**Would you like to try asking again, or would you prefer tips for cooking techniques used in ${dishName}?** 😊`;
 
       responseCache.set(cacheKey, fallbackResponse);
       return NextResponse.json({ 
