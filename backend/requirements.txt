@@ -1,4 +1,0 @@
-pandas
-google-generativeai
-fastapi
-uvicorn
