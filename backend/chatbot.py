@@ -6,12 +6,19 @@ import re
 import google.generativeai as genai
 from typing import Optional, Dict, Any
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# Configure Gemini API
-GEMINI_API_KEY = "AIzaSyC4yeWyOcfsVGF6IRvDscOPdCoO-tG8XIs"
+# Configure Gemini API using environment variable
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    raise ValueError("❌ GEMINI_API_KEY not found in environment variables. Please check your .env file.")
+
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -315,10 +322,18 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'recipes_loaded': len(recipe_db) > 0,
-        'total_recipes': len(recipe_db)
+        'total_recipes': len(recipe_db),
+        'api_configured': bool(GEMINI_API_KEY)
     })
 
 if __name__ == '__main__':
     print("🚀 Starting NutriChef Backend...")
     print(f"📊 Loaded {len(recipe_db)} recipes from CSV")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    print(f"🔑 API Key configured: {'✅' if GEMINI_API_KEY else '❌'}")
+    
+    # Get configuration from environment variables with defaults
+    debug_mode = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    port = int(os.getenv('FLASK_PORT', 5000))
+    
+    app.run(debug=debug_mode, host=host, port=port)
