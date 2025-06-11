@@ -11,6 +11,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, query, orderBy , deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/firebase/firebaseConfig";
 
+// Add this global declaration above your component or at the top of the file
+declare global {
+  interface Window {
+    webkitSpeechRecognition: any;
+  }
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState([
     { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
@@ -30,9 +37,6 @@ export default function ChatPage() {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedText, setEditedText] = useState('');
   
-  interface Window {
-    webkitSpeechRecognition: typeof SpeechRecognition;
-  }
   type SpeechRecognition = typeof window.webkitSpeechRecognition;
   
   const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
