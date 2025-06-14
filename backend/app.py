@@ -1,45 +1,125 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
-from model import recommend_recipes  # Remove the dot - this is causing issues
+import logging
+import pandas as pd
 
-app = FastAPI()
+# Import your ML model
+try:
+    from model import recommend_recipes
+    ML_MODEL_LOADED = True
+    print("✅ ML Model loaded successfully")
+except ImportError as e:
+    print(f"❌ Failed to load ML model: {e}")
+    ML_MODEL_LOADED = False
 
-# Allow frontend access
+app = FastAPI(title="Recipe Recommendation API", version="1.0.0")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Update with specific domain for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Request model
+# Load recipe dataset once
+recipes_df = pd.read_csv("recipes_small.csv")
+
+# Request models
 class IngredientRequest(BaseModel):
     ingredients: str
 
-# Health check
+class DishNameRequest(BaseModel):
+    dish_name: str
+
+class RecipeResponse(BaseModel):
+    success: bool
+    recommendations: List[Dict[str, Any]]
+    error: str = None
+
+# Health check endpoint
 @app.get("/health")
 def health_check():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "ml_model_loaded": ML_MODEL_LOADED,
+        "service": "Recipe Recommendation API"
+    }
 
-# Recommendation endpoint
-@app.post("/recommend")
+# Recipe recommendation endpoint
+@app.post("/recommend", response_model=RecipeResponse)
 def get_recommendations(data: IngredientRequest):
+    """Get recipe recommendations based on ingredients"""
+    
+    if not ML_MODEL_LOADED:
+        raise HTTPException(
+            status_code=503, 
+            detail="ML model not available. Please check server logs."
+        )
+    
+    if not data.ingredients.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Ingredients cannot be empty"
+        )
+    
     try:
+        logger.info(f"Getting recommendations for: {data.ingredients}")
+        
+        # Get recommendations from ML model
         results = recommend_recipes(data.ingredients)
-        return {
-            "success": True,
-            "recommendations": results.to_dict(orient="records")
-        }
+        
+        # Convert to list of dictionaries
+        recommendations = results.to_dict(orient="records")
+        
+        logger.info(f"Found {len(recommendations)} recommendations")
+        
+        return RecipeResponse(
+            success=True,
+            recommendations=recommendations
+        )
+        
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "recommendations": []
-        }
+        logger.error(f"Error getting recommendations: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get recommendations: {str(e)}"
+        )
+
+@app.post("/api/related-recipes")
+async def related_recipes(data: DishNameRequest):
+    dish = data.dish_name.lower()
+    keyword = dish.split()[-1]  # e.g., "biryani" from "chicken biryani"
+
+    related = recipes_df[recipes_df['title'].str.contains(keyword, case=False)]
+    related = related[~related['title'].str.lower().eq(dish)]
+
+    suggestions = related['title'].dropna().unique().tolist()[:5]
+    return {"suggestions": suggestions}
+
+# Root endpoint
+@app.get("/")
+def read_root():
+    return {
+        "message": "Recipe Recommendation API",
+        "docs": "/docs",
+        "health": "/health"
+    }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("🚀 Starting Recipe Recommendation API...")
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        log_level="info"
+    )
