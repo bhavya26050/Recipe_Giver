@@ -7,6 +7,7 @@ import google.generativeai as genai
 from typing import Optional, Dict, Any
 import json
 from dotenv import load_dotenv
+import random
 
 # Load environment variables from .env file
 load_dotenv()
@@ -313,6 +314,61 @@ def generate_recipe():
             'source': 'ai_generated'
         })
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/search-by-ingredient', methods=['POST'])
+def search_by_ingredient():
+    data = request.get_json()
+    ingredient = data.get("ingredient", "").lower()
+    offset = int(data.get("offset", 0))  # default to 0 if not provided
+
+    if not ingredient:
+        return jsonify({"error": "Missing ingredient"}), 400
+
+    # Find all matching recipes
+    found_recipes = []
+    seen_titles = set()
+    for recipe in recipe_db:
+        ingredients = recipe.get('ingredients', '').lower()
+        title = recipe.get('title', 'Unknown Recipe')
+        if ingredient in ingredients and title not in seen_titles:
+            found_recipes.append(title)
+            seen_titles.add(title)
+
+    # 🟢 Shuffle the recipes before paginating
+    random.shuffle(found_recipes)
+
+    paginated = found_recipes[offset:offset+10]
+    has_more = offset + 10 < len(found_recipes)
+
+    return jsonify({
+        "found": len(paginated) > 0,
+        "recipes": paginated,
+        "total_found": len(found_recipes),
+        "offset": offset,
+        "next_offset": offset + 10 if has_more else None,
+        "has_more": has_more
+    })
+
+
+@app.route('/api/generate-recipe-list', methods=['POST'])
+def generate_recipe_list():
+    data = request.get_json()
+    ingredient = data.get('ingredient', '').strip()
+    if not ingredient:
+        return jsonify({'error': 'Ingredient is required'}), 400
+
+    prompt = f"""List 10 creative, diverse, and appealing dish ideas that use "{ingredient}" as a main ingredient. 
+Just give the dish names, no instructions or ingredients. 
+Format as a numbered list."""
+
+    try:
+        response = model.generate_content(prompt)
+        return jsonify({
+            'suggestions': response.text,
+            'source': 'ai_generated_list'
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

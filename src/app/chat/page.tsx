@@ -45,7 +45,18 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  
+
+  // Ingredient pagination state
+  const [ingredientOffset, setIngredientOffset] = useState(0);
+  const [lastIngredient, setLastIngredient] = useState('');
+
+  // Quick recipe states
+  const [quickIngredient, setQuickIngredient] = useState('');
+  const [quickRecipes, setQuickRecipes] = useState<string[]>([]);
+  const [quickOffset, setQuickOffset] = useState(0);
+  const [quickHasMore, setQuickHasMore] = useState(true);
+  const [quickLoading, setQuickLoading] = useState(false);
+
   // Listen for clicks outside the sidebar to close it on mobile
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -92,32 +103,93 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      router.push('/login');
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        router.push('/login');
+      } else {
+        setUserEmail(user.email || '');
+
+        // Fetch chat history from Firestore
+        const historyRef = collection(db, 'users', user.uid, 'history');
+        const q = query(historyRef, orderBy('timestamp', 'desc'));
+        const querySnapshot = await getDocs(q);
+
+        // Convert Firestore docs to your PreviousChat format
+        const chats = querySnapshot.docs.map((doc, idx) => ({
+          id: doc.id,
+          title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
+          messages: [
+            { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
+            { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
+          ]
+        }));
+
+        setPreviousChats(chats);
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  // Ingredient-based recipe fetcher with pagination
+  async function getIngredientRecipes(ingredient: string, more = false) {
+    let newOffset = ingredientOffset;
+    if (!more || lastIngredient !== ingredient) {
+      newOffset = 0;
+      setLastIngredient(ingredient);
     } else {
-      setUserEmail(user.email || '');
-
-      // Fetch chat history from Firestore
-      const historyRef = collection(db, 'users', user.uid, 'history');
-      const q = query(historyRef, orderBy('timestamp', 'desc'));
-      const querySnapshot = await getDocs(q);
-
-      // Convert Firestore docs to your PreviousChat format
-      const chats = querySnapshot.docs.map((doc, idx) => ({
-        id: doc.id,
-        title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
-        messages: [
-          { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
-          { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
-        ]
-      }));
-
-      setPreviousChats(chats);
+      newOffset += 10;
     }
-  });
-  return () => unsubscribe();
-}, [router]);
+    setIngredientOffset(newOffset);
+
+    setIsTyping(true);
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `recipes from ${ingredient}`, offset: newOffset }),
+      });
+      setIsTyping(false);
+
+      if (!response.ok) {
+        setMessages(prev => [
+          ...prev,
+          { 
+            from: 'bot', 
+            text: `Oops! 😅 I'm having a little trouble right now. Try again! 🍳`, 
+            id: Date.now() 
+          }
+        ]);
+        return;
+      }
+
+      const data = await response.json();
+
+      // 🟢 ADD THIS CHECK:
+      if (!data.response || data.response.trim() === "" || data.response.toLowerCase().includes("no more recipes")) {
+        setMessages(prev => [
+          ...prev,
+          { from: 'bot', text: "No more recipes found for this ingredient.", id: Date.now() }
+        ]);
+        return;
+      }
+
+      setMessages(prev => [
+        ...prev,
+        { from: 'bot', text: data.response, id: Date.now() }
+      ]);
+    } catch (error) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        { 
+          from: 'bot', 
+          text: 'Something went wrong on my end! 😔 But I\'m still here to help you create something delicious. What would you like to cook today? 🍳✨', 
+          id: Date.now() 
+        }
+      ]);
+      console.error('Error calling chat API:', error);
+    }
+  }
 
   // Update the handleSend function to provide better context
   const handleSend = async () => {
@@ -126,24 +198,38 @@ export default function ChatPage() {
     // Add user message
     const messageId = Date.now();
     const userMessage = input;
-    
+
     // Add user message to state first for immediate UI feedback
     setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
-    
-    // Clear input and show typing indicator
     setInput('');
     setIsTyping(true);
-    
-    // Focus the input after sending
     inputRef.current?.focus();
-    
+
+    // Ingredient search detection
+    const ingredientMatch = userMessage.match(/recipes?\s+(?:from|with|using)\s+([a-zA-Z]+)/i);
+    const moreMatch = userMessage.match(/10 more recipes?\s+(?:from|with|using)?\s*([a-zA-Z]*)/i);
+
+    if (ingredientMatch) {
+      const ingredient = ingredientMatch[1].toLowerCase();
+      await getIngredientRecipes(ingredient);
+      setIsTyping(false);
+      return;
+    }
+    if (moreMatch) {
+      // If user says "10 more recipes from banana" or just "10 more recipes"
+      const ingredient = moreMatch[1] ? moreMatch[1].toLowerCase() : lastIngredient;
+      await getIngredientRecipes(ingredient, true);
+      setIsTyping(false);
+      return;
+    }
+
     try {
       // Prepare conversation history (last 8 messages for better context)
       const conversationHistory = messages
-        .slice(-8)  // Increased to 8 for better context
+        .slice(-8)
         .map(msg => ({ 
           role: msg.from === 'user' ? 'user' : 'assistant', 
-          content: msg.text.replace(/\*.*?\*/g, '').substring(0, 500) // Remove markdown and limit length
+          content: msg.text.replace(/\*.*?\*/g, '').substring(0, 500)
         }));
         
       const response = await fetch('/api/chat', {
@@ -160,7 +246,6 @@ export default function ChatPage() {
       setIsTyping(false);
       
       if (!response.ok) {
-        // Enhanced error handling
         const errorData = await response.json();
         setMessages(prev => [
           ...prev,
@@ -176,7 +261,6 @@ export default function ChatPage() {
       const data = await response.json();
       let recipeResponse = data.response;
       
-      // Add source information to the response if available (with emojis for better UX)
       if (data.source) {
         let sourceInfo = "";
         if (data.source === "database") {
@@ -186,19 +270,16 @@ export default function ChatPage() {
         } else if (data.source === "fallback") {
           sourceInfo = "\n\n---\n📖 *Recipe from our backup collection*";
         }
-        // Don't add source info for conversational responses
         if (data.source !== "conversation") {
           recipeResponse += sourceInfo;
         }
       }
       
-      // Add the bot's response to the messages
       setMessages(prev => [
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
       
-      // Save to history if it was a recipe request (not just casual conversation)
       const user = auth.currentUser;
       if (user && userMessage && typeof recipeResponse !== "undefined" &&
           recipeResponse !== null && recipeResponse !== "" && 
@@ -393,6 +474,45 @@ export default function ChatPage() {
     
     return withLineBreaks;
   }
+
+  const handleQuickSearch = async () => {
+    setQuickLoading(true);
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: 0 }),
+    });
+    const data = await res.json();
+    if (data.source?.includes('ingredient_search')) {
+      const newRecipes = data.response.split('\n');
+      setQuickRecipes(newRecipes);
+      setQuickOffset(10);
+      setQuickHasMore(newRecipes.length === 10);
+    } else {
+      setQuickRecipes([data.response]);
+      setQuickHasMore(false);
+    }
+    setQuickLoading(false);
+  };
+
+  const handleQuickShowMore = async () => {
+    setQuickLoading(true);
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: quickOffset }),
+    });
+    const data = await res.json();
+    if (data.source?.includes('ingredient_search')) {
+      const moreRecipes = data.response.split('\n');
+      setQuickRecipes(prev => [...prev, ...moreRecipes]);
+      setQuickOffset(prev => prev + 10);
+      setQuickHasMore(moreRecipes.length === 10);
+    } else {
+      setQuickHasMore(false);
+    }
+    setQuickLoading(false);
+  };
 
   return (
     <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
