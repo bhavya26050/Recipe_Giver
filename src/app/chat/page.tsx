@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
+import { MouseEvent, SetSetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { saveUserHistory } from '@/firebase/history';
@@ -56,6 +56,9 @@ export default function ChatPage() {
   const [quickOffset, setQuickOffset] = useState(0);
   const [quickHasMore, setQuickHasMore] = useState(true);
   const [quickLoading, setQuickLoading] = useState(false);
+
+  // Related suggestions state
+  const [relatedSuggestions, setRelatedSuggestions] = useState<string[]>([]);
 
   // Listen for clicks outside the sidebar to close it on mobile
   useEffect(() => {
@@ -274,6 +277,20 @@ export default function ChatPage() {
           recipeResponse += sourceInfo;
         }
       }
+      
+      // Get related recipes from Flask backend
+      const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
+      let relatedText = '';
+      if (recipeTitle) {
+        const related = await callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle });
+        if (related.suggestions && related.suggestions.length > 0) {
+          relatedText = `\n\n🍽️ **You might also enjoy:**\n` +
+            related.suggestions.map(r => `- ${r}`).join('\n');
+        }
+      }
+
+      // Append related recipes to the bot's response
+      recipeResponse += relatedText;
       
       setMessages(prev => [
         ...prev,
@@ -513,6 +530,22 @@ export default function ChatPage() {
     }
     setQuickLoading(false);
   };
+
+  async function handleRecipeClick(dishName: string) {
+    // ...your code to show the recipe...
+    const related = await callBackend('/api/related-recipes', { dish_name: dishName });
+    setRelatedSuggestions(related.suggestions || []);
+  }
+
+  async function callBackend(endpoint: string, data: any) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+    return await response.json();
+  }
 
   return (
     <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
@@ -841,6 +874,18 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Related Recipes Suggestions */}
+      {relatedSuggestions.length > 0 && (
+        <div className="mt-4">
+          <h3 className="font-semibold mb-2">Related Recipes:</h3>
+          <ul className="list-disc list-inside space-y-1">
+            {relatedSuggestions.map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

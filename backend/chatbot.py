@@ -372,6 +372,37 @@ Format as a numbered list."""
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/related-recipes', methods=['POST'])
+def related_recipes():
+    data = request.get_json()
+    dish_name = data.get('dish_name', '').lower()
+    dish_words = set(dish_name.split())
+    # Simple example: find recipes with at least one word in common (except the dish itself)
+    suggestions = []
+    for recipe in recipe_db:
+        title = recipe.get('title', '')
+        title_lower = title.lower()
+        if title_lower == dish_name:
+            continue
+        # Check if any word from the dish name is in the recipe title
+        if any(word in title_lower for word in dish_words):
+            suggestions.append(title)
+        if len(suggestions) >= 5:
+            break
+    # Fallback: if not enough, fill with random recipes (excluding the main dish and already suggested)
+    if len(suggestions) < 5:
+        others = [r.get('title', '') for r in recipe_db if r.get('title', '').lower() != dish_name and r.get('title', '') not in suggestions]
+        random.shuffle(others)
+        suggestions += others[:5 - len(suggestions)]
+    return jsonify({'suggestions': suggestions})
+    # for recipe in recipe_db:
+    #     title = recipe.get('title', '')
+    #     if title.lower() != dish_name and any(word in title.lower() for word in dish_name.split()):
+    #         suggestions.append(title)
+    #     if len(suggestions) >= 5:
+    #         break
+    # return jsonify({'suggestions': suggestions})
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

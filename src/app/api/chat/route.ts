@@ -419,9 +419,26 @@ export async function POST(request: NextRequest) {
     // Step 2: Search in database
     const searchResult = await callBackend('/api/search-recipe', { dish_name: dishName });
     if (searchResult.found) {
+      // const response = searchResult.recipe;
+      // responseCache.set(cacheKey, response);
+      // return NextResponse.json({ response, source: "database", dishName });
       const response = searchResult.recipe;
-      responseCache.set(cacheKey, response);
-      return NextResponse.json({ response, source: "database", dishName });
+
+let suggestions: string[] = [];
+try {
+  const related = await callBackend('/api/related-recipes', { dish_name: dishName });
+  suggestions = related.suggestions || [];
+} catch (e) {
+  console.warn("⚠️ Could not fetch related recipes.");
+}
+
+const finalResponse = suggestions.length > 0
+  ? `${response}\n\n🍽️ You might also enjoy:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+  : response;
+
+responseCache.set(cacheKey, finalResponse);
+return NextResponse.json({ response: finalResponse, source: "database", dishName });
+
     }
 
     // Step 3: Generate recipe using AI
