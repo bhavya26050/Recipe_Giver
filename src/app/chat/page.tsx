@@ -194,7 +194,30 @@ export default function ChatPage() {
     }
   }
 
-  // Update the handleSend function to provide better context
+  // Add this function after your existing functions
+  const enhanceRecipeWithML = async (recipe: string, title: string) => {
+    try {
+      // Extract ingredients from recipe text for ML analysis
+      const ingredientsMatch = recipe.match(/🥘 Ingredients:(.*?)👨‍🍳 Instructions:/s);
+      const ingredients = ingredientsMatch ? ingredientsMatch[1].trim() : '';
+      
+      // Get dietary classification
+      const dietaryResponse = await fetch('http://localhost:5000/api/classify-dietary', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients, title })
+      });
+      
+      const dietaryData = await dietaryResponse.json();
+      
+      return dietaryData.success ? dietaryData.dietary_analysis : null;
+    } catch (error) {
+      console.error('Error enhancing recipe with ML:', error);
+      return null;
+    }
+  };
+
+  // Update your handleSend function to include ML enhancement
   const handleSend = async () => {
     if (!input.trim()) return;
     
@@ -264,17 +287,53 @@ export default function ChatPage() {
       const data = await response.json();
       let recipeResponse = data.response;
       
-      if (data.source) {
-        let sourceInfo = "";
-        if (data.source === "database") {
-          sourceInfo = "\n\n---\n📚 *Recipe from our curated database*";
-        } else if (data.source === "api") {
-          sourceInfo = "\n\n---\n🤖 *Recipe created by AI based on your request*";
-        } else if (data.source === "fallback") {
-          sourceInfo = "\n\n---\n📖 *Recipe from our backup collection*";
+      // 🆕 ENHANCE WITH ML FEATURES
+      if (data.source === 'database' || data.source === 'api') {
+        const recipeTitle = extractTitleFromRecipe(recipeResponse) || userMessage;
+        
+        // Get ML enhancements
+        const [dietaryInfo, relatedRecipes] = await Promise.all([
+          enhanceRecipeWithML(recipeResponse, recipeTitle),
+          callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle })
+        ]);
+        
+        // Add dietary classification to response
+        if (dietaryInfo) {
+          let dietaryTags = '';
+          if (dietaryInfo.dietary_tags && dietaryInfo.dietary_tags.length > 0) {
+            const tagEmojis = {
+              'vegetarian': '🌱',
+              'vegan': '🌿', 
+              'gluten_free': '🌾',
+              'dairy_free': '🥛',
+              'keto_friendly': '🥑',
+              'high_protein': '💪',
+              'low_carb': '📉'
+            };
+            
+            dietaryTags = '\n\n### 🏷️ Dietary Info:\n' +
+              dietaryInfo.dietary_tags
+                .map(tag => `${tagEmojis[tag] || '✅'} ${tag.replace('_', ' ').toUpperCase()}`)
+                .join(' • ');
+          }
+          
+          // Insert dietary info before Chef's Tips
+          recipeResponse = recipeResponse.replace(
+            '### 💡 Chef\'s Tips:',
+            `${dietaryTags}\n\n### 💡 Chef\'s Tips:`
+          );
         }
-        if (data.source !== "conversation") {
-          recipeResponse += sourceInfo;
+        
+        // Clean up duplicate related recipes
+        const existingRelated = recipeResponse.match(/🍽️.*?You might also enjoy:.*?(?=\n---|\n\n---|\n🍽️|$)/s);
+        if (existingRelated) {
+          recipeResponse = recipeResponse.replace(existingRelated[0], '');
+        }
+        
+        // Add clean related recipes section
+        if (relatedRecipes.suggestions && relatedRecipes.suggestions.length > 0) {
+          recipeResponse += `\n\n### 🍽️ You might also enjoy:\n` +
+            relatedRecipes.suggestions.map(r => `• ${r}`).join('\n');
         }
       }
       
@@ -485,31 +544,36 @@ if (recipeTitle) {
 
   // Add this function to display formatted markdown
   function renderFormattedText(text: string) {
-    // Convert markdown-style lists to HTML
-    const withBullets = text.replace(/^- (.+)$/gm, '<li>$1</li>');
-    const withOrderedLists = withBullets.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    // Convert markdown-style formatting
+    let formatted = text
+      // Headers
+      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-emerald-700">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-4 mb-3 text-emerald-800">$1</h2>')
+      
+      // Lists
+      .replace(/^• (.+)$/gm, '<li class="ml-4 mb-1">$1</li>')
+      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, '<li class="ml-4 mb-2 font-medium">$1. $2</li>')
+      
+      // Bold text
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      
+      // Italic text
+      .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
+      
+      // Line breaks
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
     
-    // Convert markdown-style headers
-    const withHeaders = withOrderedLists
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    // Wrap in paragraphs
+    formatted = `<div class="prose prose-emerald max-w-none"><p>${formatted}</p></div>`;
     
-    // Handle paragraphs and line breaks
-    const withParagraphs = withHeaders
-      .split('\n\n')
-      .map(para => para.trim() ? `<p>${para}</p>` : '')
-      .join('');
+    // Fix list wrapping
+    formatted = formatted
+      .replace(/<p><li/g, '<ul><li')
+      .replace(/<\/li><\/p>/g, '</li></ul>')
+      .replace(/<\/li><br><li/g, '</li><li');
     
-    // Wrap lists properly
-    const withWrappedLists = withParagraphs
-      .replace(/<li>(.+)<\/li><li>/g, '<li>$1</li><li>')
-      .replace(/<p><li>(.+)<\/li><\/p>/g, '<ul><li>$1</li></ul>');
-    
-    // Replace new lines with <br> tags within paragraphs
-    const withLineBreaks = withWrappedLists.replace(/<p>(.+)\n(.+)<\/p>/g, '<p>$1<br>$2</p>');
-    
-    return withLineBreaks;
+    return formatted;
   }
 
   const handleQuickSearch = async () => {
@@ -566,6 +630,115 @@ if (recipeTitle) {
     if (!response.ok) throw new Error(`Backend error: ${response.status}`);
     return await response.json();
   }
+
+  // Add helper function to extract recipe title
+  const extractTitleFromRecipe = (recipe: string): string => {
+    const titleMatch = recipe.match(/## (.+)/);
+    return titleMatch ? titleMatch[1].trim() : '';
+  };
+
+  // Add this component before your main return statement
+  const QuickActions = () => (
+    <div className="mb-4 flex flex-wrap gap-2">
+      <button
+        onClick={() => generateMealPlan()}
+        className="px-3 py-1.5 bg-emerald-500 text-white rounded-md text-sm hover:bg-emerald-600 transition"
+      >
+        📅 Weekly Meal Plan
+      </button>
+      <button
+        onClick={() => getBreakfastRecipes()}
+        className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-sm hover:bg-orange-600 transition"
+      >
+        🌅 Breakfast Ideas
+      </button>
+      <button
+        onClick={() => getLunchRecipes()}
+        className="px-3 py-1.5 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition"
+      >
+        🍽️ Lunch Ideas
+      </button>
+      <button
+        onClick={() => getDinnerRecipes()}
+        className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-sm hover:bg-purple-600 transition"
+      >
+        🌙 Dinner Ideas
+      </button>
+    </div>
+  );
+
+  // Add these functions for quick actions
+  const generateMealPlan = async () => {
+    setIsTyping(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/generate-meal-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: 7, dietary_preferences: [] })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        let mealPlanText = "## 📅 Your 7-Day Meal Plan\n\n*Here's a personalized meal plan just for you!* ✨\n\n";
+        
+        Object.entries(data.meal_plan.meal_plan).forEach(([day, meals]: [string, any]) => {
+          mealPlanText += `### ${day}\n`;
+          mealPlanText += `🌅 **Breakfast:** ${meals.breakfast?.title || 'Free choice'}\n`;
+          mealPlanText += `🍽️ **Lunch:** ${meals.lunch?.title || 'Free choice'}\n`;
+          mealPlanText += `🌙 **Dinner:** ${meals.dinner?.title || 'Free choice'}\n`;
+          mealPlanText += `🍿 **Snack:** ${meals.snack?.title || 'Free choice'}\n\n`;
+        });
+        
+        mealPlanText += "**Want a specific recipe from this plan?** Just ask me about any dish! 😊";
+        
+        setMessages(prev => [...prev, { from: 'bot', text: mealPlanText, id: Date.now() }]);
+      }
+    } catch (error) {
+      console.error('Error generating meal plan:', error);
+    }
+    setIsTyping(false);
+  };
+
+  const getMealTypeRecipes = async (mealType: string, emoji: string) => {
+    setIsTyping(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/recipes-by-meal-type', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meal_type: mealType, limit: 8 })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.recipes.length > 0) {
+        let recipeText = `## ${emoji} ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} Recipe Ideas\n\n`;
+        recipeText += `*Here are some delicious ${mealType} options for you!* 🍳\n\n`;
+        
+        data.recipes.forEach((recipe: any, index: number) => {
+          recipeText += `**${index + 1}. ${recipe.title}**\n`;
+          
+          // Add dietary tags if available
+          if (recipe.dietary_info && recipe.dietary_info.dietary_tags.length > 0) {
+            const tags = recipe.dietary_info.dietary_tags.slice(0, 3).join(', ');
+            recipeText += `   *${tags}*\n`;
+          }
+          recipeText += '\n';
+        });
+        
+        recipeText += `**Want the full recipe for any of these?** Just ask me! 😊`;
+        
+        setMessages(prev => [...prev, { from: 'bot', text: recipeText, id: Date.now() }]);
+      }
+    } catch (error) {
+      console.error(`Error getting ${mealType} recipes:`, error);
+    }
+    setIsTyping(false);
+  };
+
+  const getBreakfastRecipes = () => getMealTypeRecipes('breakfast', '🌅');
+  const getLunchRecipes = () => getMealTypeRecipes('lunch', '🍽️');
+  const getDinnerRecipes = () => getMealTypeRecipes('dinner', '🌙');
 
   return (
     <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
@@ -695,6 +868,9 @@ if (recipeTitle) {
           {/* Messages */}
           <div className={`flex-1 overflow-y-auto py-4 px-4 md:px-8 z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="max-w-3xl mx-auto">
+              {/* Add Quick Actions at the top */}
+              {messages.length === 1 && <QuickActions />}
+              
               <AnimatePresence mode="popLayout">
                 {messages.length > 0 ? (
                   messages.map((msg, idx) => (
