@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 import json
 from dotenv import load_dotenv
 import random
+from model import classify_recipe_dietary, generate_meal_plan, get_meal_type_recipes
 
 # Load environment variables from .env file
 load_dotenv()
@@ -402,6 +403,74 @@ def related_recipes():
     #     if len(suggestions) >= 5:
     #         break
     # return jsonify({'suggestions': suggestions})
+
+@app.route('/api/classify-dietary', methods=['POST'])
+def classify_dietary_flask():
+    """Classify recipe for dietary restrictions (Flask version)"""
+    try:
+        data = request.get_json()
+        ingredients = data.get('ingredients', '').strip()
+        title = data.get('title', '').strip()
+        
+        if not ingredients:
+            return jsonify({'error': 'Ingredients are required'}), 400
+        
+        dietary_info = classify_recipe_dietary(ingredients, title)
+        
+        return jsonify({
+            'success': True,
+            'recipe_title': title,
+            'dietary_analysis': dietary_info
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-meal-plan', methods=['POST'])
+def generate_meal_plan_flask():
+    """Generate a weekly meal plan (Flask version)"""
+    try:
+        data = request.get_json()
+        days = data.get('days', 7)
+        dietary_preferences = data.get('dietary_preferences', [])
+        
+        meal_plan = generate_meal_plan(days, dietary_preferences)
+        
+        return jsonify({
+            'success': True,
+            'meal_plan': meal_plan,
+            'message': f'Generated {days}-day meal plan successfully!'
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/recipes-by-meal-type', methods=['POST'])
+def recipes_by_meal_type_flask():
+    """Get recipes filtered by meal type (Flask version)"""
+    try:
+        data = request.get_json()
+        meal_type = data.get('meal_type', '').strip()
+        limit = data.get('limit', 10)
+        
+        valid_meal_types = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
+        
+        if meal_type not in valid_meal_types:
+            return jsonify({
+                'error': f'Invalid meal type. Must be one of: {", ".join(valid_meal_types)}'
+            }), 400
+        
+        recipes = get_meal_type_recipes(meal_type, limit)
+        
+        return jsonify({
+            'success': True,
+            'meal_type': meal_type,
+            'recipes': recipes,
+            'count': len(recipes)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
 def health_check():
