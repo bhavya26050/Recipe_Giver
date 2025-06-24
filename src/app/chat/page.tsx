@@ -1,6 +1,6 @@
 'use client';
 
-import { MouseEvent, SetSetStateAction, useEffect, useRef, useState } from 'react';
+import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { saveUserHistory } from '@/firebase/history';
@@ -287,81 +287,50 @@ export default function ChatPage() {
       const data = await response.json();
       let recipeResponse = data.response;
       
-      // 🆕 ENHANCE WITH ML FEATURES
-      if (data.source === 'database' || data.source === 'api') {
-        const recipeTitle = extractTitleFromRecipe(recipeResponse) || userMessage;
-        
-        // Get ML enhancements
-        const [dietaryInfo, relatedRecipes] = await Promise.all([
-          enhanceRecipeWithML(recipeResponse, recipeTitle),
-          callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle })
-        ]);
-        
-        // Add dietary classification to response
-        if (dietaryInfo) {
-          let dietaryTags = '';
-          if (dietaryInfo.dietary_tags && dietaryInfo.dietary_tags.length > 0) {
-            const tagEmojis = {
-              'vegetarian': '🌱',
-              'vegan': '🌿', 
-              'gluten_free': '🌾',
-              'dairy_free': '🥛',
-              'keto_friendly': '🥑',
-              'high_protein': '💪',
-              'low_carb': '📉'
-            };
-            
-            dietaryTags = '\n\n### 🏷️ Dietary Info:\n' +
-              dietaryInfo.dietary_tags
-                .map(tag => `${tagEmojis[tag] || '✅'} ${tag.replace('_', ' ').toUpperCase()}`)
-                .join(' • ');
-          }
-          
-          // Insert dietary info before Chef's Tips
-          recipeResponse = recipeResponse.replace(
-            '### 💡 Chef\'s Tips:',
-            `${dietaryTags}\n\n### 💡 Chef\'s Tips:`
-          );
-        }
-        
-        // Clean up duplicate related recipes
-        const existingRelated = recipeResponse.match(/🍽️.*?You might also enjoy:.*?(?=\n---|\n\n---|\n🍽️|$)/s);
-        if (existingRelated) {
-          recipeResponse = recipeResponse.replace(existingRelated[0], '');
-        }
-        
-        // Add clean related recipes section
-        if (relatedRecipes.suggestions && relatedRecipes.suggestions.length > 0) {
-          recipeResponse += `\n\n### 🍽️ You might also enjoy:\n` +
-            relatedRecipes.suggestions.map(r => `• ${r}`).join('\n');
-        }
-      }
+      // Clean up duplicate sections
+      recipeResponse = cleanRecipeResponse(recipeResponse);
       
-      // Get related recipes from Flask backend
-      const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
-      let relatedText = '';
-      if (recipeTitle) {
-        const related = await callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle });
-        if (related.suggestions && related.suggestions.length > 0) {
-          relatedText = `\n\n🍽️ **You might also enjoy:**\n` +
-            related.suggestions.map(r => `- ${r}`).join('\n');
+      // 🆕 ENHANCE WITH ML FEATURES FOR DATABASE RECIPES
+      if (data.source === 'database' && data.dishName) {
+        try {
+          // Get related recipes
+          const relatedResponse = await fetch('http://localhost:5000/api/related-recipes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dish_name: data.dishName })
+          });
+          
+          if (relatedResponse.ok) {
+            const relatedData = await relatedResponse.json();
+            
+            if (relatedData.suggestions && relatedData.suggestions.length > 0) {
+              // Remove any existing related section first
+              recipeResponse = recipeResponse.replace(/🍽️.*?You might also enjoy:.*$/s, '');
+              
+              // Add clean related recipes section
+              recipeResponse += `\n\n### 🍽️ **You might also enjoy:**\n`;
+              relatedData.suggestions.forEach((suggestion, index) => {
+                recipeResponse += `**${index + 1}.** ${suggestion}\n`;
+              });
+              recipeResponse += "\n**Want any of these recipes?** Just ask me! 😊";
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching related recipes:', error);
         }
       }
-
-      // Append related recipes to the bot's response
-      recipeResponse += relatedText;
       
       setMessages(prev => [
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
       
+      // Save to history
       const user = auth.currentUser;
-      if (user && userMessage && typeof recipeResponse !== "undefined" &&
-          recipeResponse !== null && recipeResponse !== "" && 
-          data.source !== "conversation") {
+      if (user && userMessage && recipeResponse && data.source !== "conversation") {
         await saveUserHistory(user.uid, userMessage, recipeResponse);
       }
+      
     } catch (error) {
       setIsTyping(false);
       setMessages(prev => [
@@ -526,96 +495,57 @@ export default function ChatPage() {
   function renderFormattedText(text: string) {
     // Convert markdown-style formatting
     let formatted = text
-      // Headers
-      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-emerald-700">$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-4 mb-3 text-emerald-800">$1</h2>')
+      // Headers with better styling
+      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-emerald-700 border-b border-emerald-200 pb-1">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-4 mb-3 text-emerald-800 border-b-2 border-emerald-300 pb-2">$1</h2>')
       
-      // Lists
-      .replace(/^• (.+)$/gm, '<li class="ml-4 mb-1">$1</li>')
-      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, '<li class="ml-4 mb-2 font-medium">$1. $2</li>')
+      // Lists with better spacing
+      .replace(/^• (.+)$/gm, '<li class="ml-4 mb-2 text-gray-700">$1</li>')
+      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, '<li class="ml-4 mb-3 font-medium"><span class="text-emerald-600 font-bold">$1.</span> $2</li>')
       
-      // Bold text
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      // Bold text with emerald color for emphasis
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-emerald-700">$1</strong>')
       
       // Italic text
-      .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
+      .replace(/\*(.+?)\*/g, '<em class="italic text-gray-600">$1</em>')
       
       // Line breaks
-      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n\n/g, '</p><p class="mb-3">')
       .replace(/\n/g, '<br>');
     
-    // Wrap in paragraphs
-    formatted = `<div class="prose prose-emerald max-w-none"><p>${formatted}</p></div>`;
+    // Wrap in paragraphs with better spacing
+    formatted = `<div class="prose prose-emerald max-w-none"><p class="mb-3">${formatted}</p></div>`;
     
-    // Fix list wrapping
+    // Fix list wrapping with better styling
     formatted = formatted
-      .replace(/<p><li/g, '<ul><li')
+      .replace(/<p class="mb-3"><li/g, '<ul class="list-none space-y-2 mb-4"><li')
       .replace(/<\/li><\/p>/g, '</li></ul>')
       .replace(/<\/li><br><li/g, '</li><li');
     
     return formatted;
   }
 
-  const handleQuickSearch = async () => {
-    setQuickLoading(true);
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: 0 }),
-    });
-    const data = await res.json();
-    if (data.source?.includes('ingredient_search')) {
-      const newRecipes = data.response.split('\n');
-      setQuickRecipes(newRecipes);
-      setQuickOffset(10);
-      setQuickHasMore(newRecipes.length === 10);
-    } else {
-      setQuickRecipes([data.response]);
-      setQuickHasMore(false);
+  // Add this helper function to clean up duplicate "You might also enjoy" sections
+  function cleanRecipeResponse(response: string): string {
+    // Remove duplicate "You might also enjoy" sections
+    const lines = response.split('\n');
+    const cleanedLines = [];
+    let seenRelatedSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('You might also enjoy') || line.includes('🍽️')) {
+        if (!seenRelatedSection) {
+          cleanedLines.push(line);
+          seenRelatedSection = true;
+        }
+        // Skip duplicate sections
+      } else {
+        cleanedLines.push(line);
+      }
     }
-    setQuickLoading(false);
-  };
-
-  const handleQuickShowMore = async () => {
-    setQuickLoading(true);
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: quickOffset }),
-    });
-    const data = await res.json();
-    if (data.source?.includes('ingredient_search')) {
-      const moreRecipes = data.response.split('\n');
-      setQuickRecipes(prev => [...prev, ...moreRecipes]);
-      setQuickOffset(prev => prev + 10);
-      setQuickHasMore(moreRecipes.length === 10);
-    } else {
-      setQuickHasMore(false);
-    }
-    setQuickLoading(false);
-  };
-
-  async function handleRecipeClick(dishName: string) {
-    // ...your code to show the recipe...
-    const related = await callBackend('/api/related-recipes', { dish_name: dishName });
-    setRelatedSuggestions(related.suggestions || []);
+    
+    return cleanedLines.join('\n');
   }
-
-  async function callBackend(endpoint: string, data: any) {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Backend error: ${response.status}`);
-    return await response.json();
-  }
-
-  // Add helper function to extract recipe title
-  const extractTitleFromRecipe = (recipe: string): string => {
-    const titleMatch = recipe.match(/## (.+)/);
-    return titleMatch ? titleMatch[1].trim() : '';
-  };
 
   // Add this component before your main return statement
   const QuickActions = () => (
