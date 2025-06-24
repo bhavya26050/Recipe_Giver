@@ -279,15 +279,35 @@ export default function ChatPage() {
       }
       
       // Get related recipes from Flask backend
+      // const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
+      // let relatedText = '';
+      // if (recipeTitle) {
+      //   const related = await callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle });
+      //   if (related.suggestions && related.suggestions.length > 0) {
+      //     relatedText = `\n\n🍽️ **You might also enjoy:**\n` +
+      //       related.suggestions.map(r => `- ${r}`).join('\n');
+      //   }
+      // }
       const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
-      let relatedText = '';
-      if (recipeTitle) {
-        const related = await callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle });
-        if (related.suggestions && related.suggestions.length > 0) {
-          relatedText = `\n\n🍽️ **You might also enjoy:**\n` +
-            related.suggestions.map(r => `- ${r}`).join('\n');
-        }
-      }
+
+let relatedText = '';
+
+if (recipeTitle) {
+  try {
+    const related = await callBackend('http://localhost:5000/api/related-recipes', {
+      dish_name: recipeTitle,
+    });
+
+    if (related.suggestions && related.suggestions.length > 0) {
+      relatedText =
+        `\n\n🍽️ **You might also enjoy:**\n` +
+        related.suggestions.map((r: string) => `- ${r}`).join('\n');
+    }
+  } catch (error) {
+    console.error("❌ Failed to fetch related recipes:", error);
+  }
+}
+
 
       // Append related recipes to the bot's response
       recipeResponse += relatedText;

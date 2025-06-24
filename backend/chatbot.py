@@ -395,14 +395,7 @@ def related_recipes():
         random.shuffle(others)
         suggestions += others[:5 - len(suggestions)]
     return jsonify({'suggestions': suggestions})
-    # for recipe in recipe_db:
-    #     title = recipe.get('title', '')
-    #     if title.lower() != dish_name and any(word in title.lower() for word in dish_name.split()):
-    #         suggestions.append(title)
-    #     if len(suggestions) >= 5:
-    #         break
-    # return jsonify({'suggestions': suggestions})
-
+   
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""

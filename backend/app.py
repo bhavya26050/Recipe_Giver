@@ -93,16 +93,40 @@ def get_recommendations(data: IngredientRequest):
             detail=f"Failed to get recommendations: {str(e)}"
         )
 
-@app.post("/api/related-recipes")
-async def related_recipes(data: DishNameRequest):
-    dish = data.dish_name.lower()
-    keyword = dish.split()[-1]  # e.g., "biryani" from "chicken biryani"
+# @app.post("/api/related-recipes")
+# async def related_recipes(data: DishNameRequest):
+#     dish = data.dish_name.lower()
+#     keyword = dish.split()[-1]  # e.g., "biryani" from "chicken biryani"
 
-    related = recipes_df[recipes_df['title'].str.contains(keyword, case=False)]
+#     related = recipes_df[recipes_df['title'].str.contains(keyword, case=False)]
+#     related = related[~related['title'].str.lower().eq(dish)]
+
+#     suggestions = related['title'].dropna().unique().tolist()[:5]
+#     return {"suggestions": suggestions}
+@app.route("/api/related-recipes", methods=["POST"])
+def related_recipes():
+    data = request.get_json()
+    dish = data.get("dish_name", "").lower()
+
+    # Tokenize the dish name
+    words = dish.split()
+
+    # Only keep meaningful words (optional: add your own stopword list)
+    keywords = [word for word in words if word not in {"with", "and", "the", "of", "in", "on", "a"}]
+
+    # Search for any of those keywords in other recipe titles
+    related = recipes_df[
+        recipes_df['title'].str.lower().apply(
+            lambda title: any(word in title for word in keywords)
+        )
+    ]
+
+    # Exclude exact match
     related = related[~related['title'].str.lower().eq(dish)]
 
+    # Return top 5 suggestions
     suggestions = related['title'].dropna().unique().tolist()[:5]
-    return {"suggestions": suggestions}
+    return jsonify({"suggestions": suggestions})
 
 # Root endpoint
 @app.get("/")
