@@ -320,6 +320,15 @@ export default function ChatPage() {
         }
       }
       
+      // 🆕 Enhanced recipe response handling
+      if (data.source === 'database' && recipeResponse) {
+        // Clean up any formatting issues
+        recipeResponse = recipeResponse
+          .replace(/\*\*Complete Ingredients:\*\*/g, '**Complete Ingredients:**')
+          .replace(/\*\*Complete Instructions:\*\*/g, '**Complete Instructions:**')
+          .replace(/\*\*Chef\'s Tips:\*\*/g, '**Chef\'s Tips:**');
+      }
+      
       setMessages(prev => [
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
