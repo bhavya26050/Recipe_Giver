@@ -1,183 +1,36 @@
-// // import Image from "next/image";
-
-// // export default function Home() {
-// //   return (
-// //     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-// //       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-// //         <Image
-// //           className="dark:invert"
-// //           src="/next.svg"
-// //           alt="Next.js logo"
-// //           width={180}
-// //           height={38}
-// //           priority
-// //         />
-// //         <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-// //           <li className="mb-2 tracking-[-.01em]">
-// //             Get started by editing{" "}
-// //             <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-// //               src/app/page.tsx
-// //             </code>
-// //             .
-// //           </li>
-// //           <li className="tracking-[-.01em]">
-// //             Save and see your changes instantly.
-// //           </li>
-// //         </ol>
-
-// //         <div className="flex gap-4 items-center flex-col sm:flex-row">
-// //           <a
-// //             className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-// //             href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-// //             target="_blank"
-// //             rel="noopener noreferrer"
-// //           >
-// //             <Image
-// //               className="dark:invert"
-// //               src="/vercel.svg"
-// //               alt="Vercel logomark"
-// //               width={20}
-// //               height={20}
-// //             />
-// //             Deploy now
-// //           </a>
-// //           <a
-// //             className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-// //             href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-// //             target="_blank"
-// //             rel="noopener noreferrer"
-// //           >
-// //             Read our docs
-// //           </a>
-// //         </div>
-// //       </main>
-// //       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-// //         <a
-// //           className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-// //           href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-// //           target="_blank"
-// //           rel="noopener noreferrer"
-// //         >
-// //           <Image
-// //             aria-hidden
-// //             src="/file.svg"
-// //             alt="File icon"
-// //             width={16}
-// //             height={16}
-// //           />
-// //           Learn
-// //         </a>
-// //         <a
-// //           className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-// //           href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-// //           target="_blank"
-// //           rel="noopener noreferrer"
-// //         >
-// //           <Image
-// //             aria-hidden
-// //             src="/window.svg"
-// //             alt="Window icon"
-// //             width={16}
-// //             height={16}
-// //           />
-// //           Examples
-// //         </a>
-// //         <a
-// //           className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-// //           href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-// //           target="_blank"
-// //           rel="noopener noreferrer"
-// //         >
-// //           <Image
-// //             aria-hidden
-// //             src="/globe.svg"
-// //             alt="Globe icon"
-// //             width={16}
-// //             height={16}
-// //           />
-// //           Go to nextjs.org →
-// //         </a>
-// //       </footer>
-// //     </div>
-// //   );
-// // }
-// import Link from 'next/link';
-
-// export default function HomePage() {
-//   return (
-//     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-green-100 via-green-200 to-green-300">
-//       <div className="text-center p-8 bg-white rounded shadow-lg max-w-xl">
-//         <h1 className="text-4xl font-bold text-green-700 mb-4">Welcome to NutriChef 🥗</h1>
-//         <p className="text-gray-700 mb-6">Your smart food and diet recipe assistant using AI</p>
-//         <div className="space-x-4">
-//           <Link href="/login">
-//             <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition">Login</button>
-//           </Link>
-//           <Link href="/register">
-//             <button className="border border-green-500 text-green-600 px-4 py-2 rounded hover:bg-green-100 transition">Register</button>
-//           </Link>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// 'use client';
-
-// import { useRouter } from 'next/navigation';
-// import { onAuthStateChanged } from 'firebase/auth';
-// import { useEffect } from 'react';
-// import { auth } from '@/firebase/firebaseConfig';
-
-// export default function LandingPage() {
-//   const router = useRouter();
-
-//   useEffect(() => {
-//     // Auto-redirect if already logged in
-//     onAuthStateChanged(auth, (user) => {
-//       if (user) router.replace('/chat');
-//     });
-//   }, [router]);
-
-//   return (
-//     <main className="min-h-screen bg-gradient-to-br from-white to-green-100 flex flex-col items-center justify-center px-6 py-12">
-//       <h1 className="text-5xl font-extrabold text-green-700 mb-4">🌿 NutriChef</h1>
-//       <p className="text-lg text-gray-700 mb-6 text-center max-w-xl">
-//         Your personalized nutrition and recipe assistant. Start chatting to get healthy meal plans based on your preferences.
-//       </p>
-//       <div className="flex gap-6">
-//         <button
-//           onClick={() => router.push('/login')}
-//           className="px-6 py-3 bg-green-600 text-white rounded-lg shadow-md hover:bg-green-700 transition"
-//         >
-//           Login
-//         </button>
-//         <button
-//           onClick={() => router.push('/register')}
-//           className="px-6 py-3 bg-white border-2 border-green-600 text-green-700 rounded-lg shadow-md hover:bg-green-100 transition"
-//         >
-//           Register
-//         </button>
-//       </div>
-//     </main>
-//   );
-// }
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { auth } from '@/firebase/firebaseConfig';
+import { ChefHat, Star, Heart, Clock, Utensils, Sparkles, Users, Trophy, Play } from 'lucide-react';
 
 export default function LandingPage() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Auto-redirect if already logged in
-    onAuthStateChanged(auth, (user) => {
-      if (user) router.replace('/chat');
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace('/chat');
+      } else {
+        setIsLoading(false);
+      }
     });
+    return () => unsubscribe();
   }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-green-100">
+        <div className="text-center">
+          <ChefHat className="w-12 h-12 mx-auto mb-4 text-emerald-600 animate-pulse" />
+          <p className="text-gray-600">Loading NutriChef...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main
@@ -189,49 +42,156 @@ export default function LandingPage() {
         backgroundPosition: 'center',
       }}
     >
-      <div className="bg-white bg-opacity-90 backdrop-blur-md rounded-3xl shadow-xl max-w-3xl w-full p-12 flex flex-col items-center text-center">
-        <h1 className="text-6xl font-extrabold text-emerald-700 mb-6 flex items-center justify-center gap-3">
-          <span>🌿</span> NutriChef <span>🍲</span>
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 overflow-hidden">
+      {/* Header */}
+      <header className="relative z-10 px-6 py-4">
+        <nav className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-600/20">
+              <ChefHat className="w-8 h-8 text-emerald-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">NutriChef</h1>
+              <p className="text-xs text-gray-500">AI Recipe Assistant</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/login')}
+              className="px-6 py-2 text-emerald-600 hover:text-emerald-700 font-medium transition-colors"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => router.push('/register')}
+              className="px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all transform hover:scale-105 shadow-lg"
+            >
+              Get Started
+            </button>
+          </div>
+        </nav>
+      </header>
 
-        <p className="text-xl text-gray-700 mb-10 max-w-xl leading-relaxed">
-          Your personalized <span className="font-semibold text-emerald-600">nutrition and recipe assistant</span>. 
-          Just tell me what ingredients you have or the name of the dish, and I'll provide you with delicious meal plans and recipes!
-        </p>
-
-        <div className="flex gap-8">
-          <button
-            onClick={() => router.push('/login')}
-            className="px-8 py-4 bg-emerald-600 text-white rounded-2xl shadow-lg hover:bg-emerald-700 transition transform hover:-translate-y-1"
-            aria-label="Login"
-          >
-            Login
-          </button>
-          <button
-            onClick={() => router.push('/register')}
-            className="px-8 py-4 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl shadow-lg hover:bg-emerald-50 transition transform hover:-translate-y-1"
-            aria-label="Register"
-          >
-            Register
-          </button>
+      {/* Hero Section */}
+      <main className="relative">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-5">
+          <div className="absolute top-20 left-10 w-20 h-20 text-emerald-600">
+            <Utensils className="w-full h-full" />
+          </div>
+          <div className="absolute top-40 right-20 w-16 h-16 text-green-600">
+            <Heart className="w-full h-full" />
+          </div>
+          <div className="absolute bottom-40 left-20 w-24 h-24 text-teal-600">
+            <Sparkles className="w-full h-full" />
+          </div>
         </div>
 
-        <div className="mt-12 flex items-center gap-4 text-gray-600 text-sm">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6 text-emerald-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16v-1a4 4 0 00-3-3.87M3 16v-1a4 4 0 013-3.87M12 20c4.418 0 8-3.582 8-8 0-1.336-.408-2.577-1.102-3.616M4 12c0 4.418 3.582 8 8 8z" />
-          </svg>
-          <p>
-            Chat with NutriChef and get personalized recipes based on your ingredients or dish names.
-          </p>
+        <div className="relative z-10 max-w-7xl mx-auto px-6 py-20">
+          <div className="text-center mb-16">
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <span className="text-4xl">🌿</span>
+              <h1 className="text-6xl md:text-7xl font-extrabold text-gray-900">
+                Nutri<span className="text-emerald-600">Chef</span>
+              </h1>
+              <span className="text-4xl">🍲</span>
+            </div>
+            
+            <p className="text-xl md:text-2xl text-gray-700 mb-8 max-w-3xl mx-auto leading-relaxed">
+              Your <span className="font-bold text-emerald-600">AI-powered cooking companion</span> that turns 
+              your ingredients into <span className="font-semibold">delicious recipes</span>, 
+              creates <span className="font-semibold">personalized meal plans</span>, and makes cooking fun!
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12">
+              <button
+                onClick={() => router.push('/register')}
+                className="group px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-2xl font-semibold text-lg shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 flex items-center gap-3"
+              >
+                <ChefHat className="w-6 h-6 group-hover:rotate-12 transition-transform" />
+                Start Cooking Now
+                <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </button>
+              
+              <button
+                onClick={() => router.push('/login')}
+                className="px-8 py-4 bg-white border-2 border-emerald-600 text-emerald-700 rounded-2xl font-semibold text-lg hover:bg-emerald-50 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2"
+              >
+                <Play className="w-5 h-5" />
+                Watch Demo
+              </button>
+            </div>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid md:grid-cols-3 gap-8 mb-16">
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 border border-emerald-100">
+              <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Utensils className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Smart Recipe Search</h3>
+              <p className="text-gray-600 text-center leading-relaxed">
+                Tell me what ingredients you have, and I'll create amazing recipes just for you. 
+                Filter by dietary preferences, cooking time, and difficulty level.
+              </p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 border border-emerald-100">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Clock className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Meal Planning</h3>
+              <p className="text-gray-600 text-center leading-relaxed">
+                Get personalized weekly meal plans with nutritional information. 
+                Perfect for busy schedules and healthy eating goals.
+              </p>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl hover:shadow-2xl transition-all transform hover:scale-105 border border-emerald-100">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Heart className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">Nutrition Tracking</h3>
+              <p className="text-gray-600 text-center leading-relaxed">
+                Track calories, macros, and nutritional information for every recipe. 
+                Make healthier choices with detailed insights.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Section */}
+          <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-3xl p-12 text-white text-center shadow-2xl">
+            <h2 className="text-3xl font-bold mb-8">Join Thousands of Happy Cooks!</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+              <div>
+                <div className="text-4xl font-bold mb-2">50K+</div>
+                <div className="text-emerald-100">Recipes Created</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold mb-2">10K+</div>
+                <div className="text-emerald-100">Happy Users</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold mb-2">25K+</div>
+                <div className="text-emerald-100">Meal Plans</div>
+              </div>
+              <div>
+                <div className="text-4xl font-bold mb-2">98%</div>
+                <div className="text-emerald-100">Satisfaction</div>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="relative z-10 py-8 px-6 bg-white/50 backdrop-blur-sm border-t border-emerald-100">
+        <div className="max-w-7xl mx-auto text-center text-gray-600">
+          <p>&copy; 2024 NutriChef. Made with ❤️ for food lovers everywhere.</p>
+        </div>
+      </footer>
+    </div>
     </main>
   );
 }
