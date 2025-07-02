@@ -1,783 +1,10 @@
-// // // // // // // export default function LoginPage() {
-// // // // // // //   return (
-// // // // // // //     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-// // // // // // //       <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-// // // // // // //         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
-// // // // // // //         <form className="space-y-4">
-// // // // // // //           <input type="email" placeholder="Email" className="w-full p-2 border border-gray-300 rounded" />
-// // // // // // //           <input type="password" placeholder="Password" className="w-full p-2 border border-gray-300 rounded" />
-// // // // // // //           <button type="submit" className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600">
-// // // // // // //             Login
-// // // // // // //           </button>
-// // // // // // //         </form>
-// // // // // // //       </div>
-// // // // // // //     </div>
-// // // // // // //   );
-// // // // // // // }
-
-// // // // // // 'use client';
-
-// // // // // // import { useState } from 'react';
-// // // // // // import { useRouter } from 'next/navigation';
-
-// // // // // // export default function LoginPage() {
-// // // // // //   const router = useRouter();
-// // // // // //   const [email, setEmail] = useState('');
-// // // // // //   const [password, setPassword] = useState('');
-
-// // // // // //   const handleLogin = (e: React.FormEvent) => {
-// // // // // //     e.preventDefault();
-
-// // // // // //     // Dummy login — replace with Firebase/Auth
-// // // // // //     if (email && password) {
-// // // // // //       router.push('/chat');
-// // // // // //     }
-// // // // // //   };
-
-// // // // // //   return (
-// // // // // //     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-// // // // // //       <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-// // // // // //         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
-
-// // // // // //         <form onSubmit={handleLogin} className="space-y-4">
-// // // // // //           <input
-// // // // // //             type="email"
-// // // // // //             placeholder="Email"
-// // // // // //             className="w-full p-2 border border-gray-300 rounded"
-// // // // // //             value={email}
-// // // // // //             onChange={(e) => setEmail(e.target.value)}
-// // // // // //             required
-// // // // // //           />
-// // // // // //           <input
-// // // // // //             type="password"
-// // // // // //             placeholder="Password"
-// // // // // //             className="w-full p-2 border border-gray-300 rounded"
-// // // // // //             value={password}
-// // // // // //             onChange={(e) => setPassword(e.target.value)}
-// // // // // //             required
-// // // // // //           />
-// // // // // //           <button
-// // // // // //             type="submit"
-// // // // // //             className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition"
-// // // // // //           >
-// // // // // //             Login
-// // // // // //           </button>
-// // // // // //         </form>
-// // // // // //       </div>
-// // // // // //     </div>
-// // // // // //   );
-// // // // // // }
-// // // // // 'use client';
-
-// // // // // import { useState } from 'react';
-// // // // // import { signInWithEmailAndPassword } from 'firebase/auth';
-// // // // // import { auth } from '@/firebase/firebaseConfig';
-// // // // // import { useRouter } from 'next/navigation';
-
-// // // // // export default function LoginPage() {
-// // // // //   const router = useRouter();
-// // // // //   const [email, setEmail] = useState('');
-// // // // //   const [password, setPassword] = useState('');
-// // // // //   const [error, setError] = useState('');
-
-// // // // //   const handleLogin = async (e: React.FormEvent) => {
-// // // // //     e.preventDefault();
-
-// // // // //     try {
-// // // // //       await signInWithEmailAndPassword(auth, email, password);
-// // // // //       router.push('/chat');
-// // // // //     } catch (err: any) {
-// // // // //       setError(err.message || 'Login failed');
-// // // // //     }
-// // // // //   };
-
-// // // // //   return (
-// // // // //     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
-// // // // //       <div className="bg-white p-8 rounded shadow-md w-full max-w-sm">
-// // // // //         <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
-
-// // // // //         {error && <p className="mb-4 text-red-500 text-sm text-center">{error}</p>}
-
-// // // // //         <form onSubmit={handleLogin} className="space-y-4">
-// // // // //           <input
-// // // // //             type="email"
-// // // // //             placeholder="Email"
-// // // // //             className="w-full p-2 border border-gray-300 rounded"
-// // // // //             value={email}
-// // // // //             onChange={(e) => setEmail(e.target.value)}
-// // // // //             required
-// // // // //           />
-// // // // //           <input
-// // // // //             type="password"
-// // // // //             placeholder="Password"
-// // // // //             className="w-full p-2 border border-gray-300 rounded"
-// // // // //             value={password}
-// // // // //             onChange={(e) => setPassword(e.target.value)}
-// // // // //             required
-// // // // //           />
-// // // // //           <button
-// // // // //             type="submit"
-// // // // //             className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition"
-// // // // //           >
-// // // // //             Login
-// // // // //           </button>
-// // // // //         </form>
-// // // // //       </div>
-// // // // //     </div>
-// // // // //   );
-// // // // // }
-// // // // 'use client';
-
-// // // // import { useState } from 'react';
-// // // // import { useRouter } from 'next/navigation';
-// // // // import { signInWithEmailAndPassword } from 'firebase/auth';
-// // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // export default function LoginPage() {
-// // // //   const router = useRouter();
-// // // //   const [email, setEmail] = useState('');
-// // // //   const [password, setPassword] = useState('');
-// // // //   const [error, setError] = useState('');
-
-// // // //   const handleLogin = async (e: React.FormEvent) => {
-// // // //     e.preventDefault();
-
-// // // //     try {
-// // // //       await signInWithEmailAndPassword(auth, email, password);
-// // // //       router.push('/chat'); // Redirect after login
-// // // //     } catch (err: any) {
-// // // //       setError(err.message || 'Login failed');
-// // // //     }
-// // // //   };
-
-// // // //   return (
-// // // //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-200 to-green-400 px-4">
-// // // //       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-// // // //         <h2 className="text-3xl font-bold text-center text-green-800 mb-6">NutriChef Login</h2>
-
-// // // //         {error && <p className="mb-4 text-red-600 text-sm text-center">{error}</p>}
-
-// // // //         <form onSubmit={handleLogin} className="space-y-4">
-// // // //           <input
-// // // //             type="email"
-// // // //             placeholder="Email"
-// // // //             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-// // // //             value={email}
-// // // //             onChange={(e) => setEmail(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <input
-// // // //             type="password"
-// // // //             placeholder="Password"
-// // // //             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
-// // // //             value={password}
-// // // //             onChange={(e) => setPassword(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <button
-// // // //             type="submit"
-// // // //             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg transition"
-// // // //           >
-// // // //             Log In
-// // // //           </button>
-// // // //         </form>
-
-// // // //         <p className="text-sm text-center mt-4 text-gray-600">
-// // // //           Don't have an account?{' '}
-// // // //           <a href="/register" className="text-green-700 hover:underline">
-// // // //             Register here
-// // // //           </a>
-// // // //         </p>
-// // // //       </div>
-// // // //     </div>
-// // // //   );
-// // // // }
-// // // // 'use client';
-
-// // // // import { signInWithEmailAndPassword } from 'firebase/auth';
-// // // // import { useRouter } from 'next/navigation';
-// // // // import { useState } from 'react';
-// // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // export default function LoginPage() {
-// // // //   const router = useRouter();
-// // // //   const [email, setEmail] = useState('');
-// // // //   const [password, setPassword] = useState('');
-// // // //   const [error, setError] = useState('');
-
-// // // //   const handleLogin = async (e: React.FormEvent) => {
-// // // //     e.preventDefault();
-// // // //     try {
-// // // //       await signInWithEmailAndPassword(auth, email, password);
-// // // //       router.push('/chat');
-// // // //     } catch (err: any) {
-// // // //       setError(err.message);
-// // // //     }
-// // // //   };
-
-// // // //   return (
-// // // //     <div className="min-h-screen flex items-center justify-center bg-green-50">
-// // // //       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-// // // //         <h1 className="text-3xl font-bold mb-6 text-center text-green-700">Login</h1>
-// // // //         {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
-// // // //         <form onSubmit={handleLogin} className="space-y-4">
-// // // //           <input
-// // // //             type="email"
-// // // //             placeholder="Email"
-// // // //             className="w-full p-3 border border-gray-300 rounded-lg"
-// // // //             value={email}
-// // // //             onChange={(e) => setEmail(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <input
-// // // //             type="password"
-// // // //             placeholder="Password"
-// // // //             className="w-full p-3 border border-gray-300 rounded-lg"
-// // // //             value={password}
-// // // //             onChange={(e) => setPassword(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <button
-// // // //             type="submit"
-// // // //             className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
-// // // //           >
-// // // //             Login
-// // // //           </button>
-// // // //         </form>
-// // // //       </div>
-// // // //     </div>
-// // // //   );
-// // // // }
-// // // // 'use client';
-
-// // // // import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-// // // // import { useRouter } from 'next/navigation';
-// // // // import { useEffect, useState } from 'react';
-// // // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // // export default function LoginPage() {
-// // // //   const router = useRouter();
-// // // //   const [email, setEmail] = useState('');
-// // // //   const [password, setPassword] = useState('');
-// // // //   const [error, setError] = useState('');
-// // // //   const [loading, setLoading] = useState(true);
-
-// // // //   // Redirect to /chat if user is already logged in
-// // // //   useEffect(() => {
-// // // //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// // // //       if (user) {
-// // // //         router.push('/chat');
-// // // //       } else {
-// // // //         setLoading(false); // Only show login form if not logged in
-// // // //       }
-// // // //     });
-// // // //     return () => unsubscribe();
-// // // //   }, []);
-
-// // // //   const handleLogin = async (e: React.FormEvent) => {
-// // // //     e.preventDefault();
-// // // //     try {
-// // // //       await signInWithEmailAndPassword(auth, email, password);
-// // // //       router.push('/chat');
-// // // //     } catch (err: any) {
-// // // //       setError(err.message);
-// // // //     }
-// // // //   };
-
-// // // //   if (loading) {
-// // // //     return <p className="text-center mt-10">Checking authentication...</p>;
-// // // //   }
-
-// // // //   return (
-// // // //     <div className="min-h-screen flex items-center justify-center bg-green-50">
-// // // //       <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
-// // // //         <h1 className="text-3xl font-bold mb-6 text-center text-green-700">Login</h1>
-// // // //         {error && <p className="text-red-500 mb-4 text-center">{error}</p>}
-// // // //         <form onSubmit={handleLogin} className="space-y-4">
-// // // //           <input
-// // // //             type="email"
-// // // //             placeholder="Email"
-// // // //             className="w-full p-3 border border-gray-300 rounded-lg"
-// // // //             value={email}
-// // // //             onChange={(e) => setEmail(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <input
-// // // //             type="password"
-// // // //             placeholder="Password"
-// // // //             className="w-full p-3 border border-gray-300 rounded-lg"
-// // // //             value={password}
-// // // //             onChange={(e) => setPassword(e.target.value)}
-// // // //             required
-// // // //           />
-// // // //           <button
-// // // //             type="submit"
-// // // //             className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition"
-// // // //           >
-// // // //             Login
-// // // //           </button>
-// // // //         </form>
-// // // //       </div>
-// // // //     </div>
-// // // //   );
-// // // // }
-
-// // // 'use client';
-
-// // // import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-// // // import { useRouter } from 'next/navigation';
-// // // import { useEffect, useState } from 'react';
-// // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // export default function LoginPage() {
-// // //   const router = useRouter();
-// // //   const [email, setEmail] = useState('');
-// // //   const [password, setPassword] = useState('');
-// // //   const [error, setError] = useState('');
-// // //   const [loading, setLoading] = useState(true);
-
-// // //   // Redirect to /chat if user is already logged in
-// // //   useEffect(() => {
-// // //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// // //       if (user) {
-// // //         router.push('/chat');
-// // //       } else {
-// // //         setLoading(false); // Only show login form if not logged in
-// // //       }
-// // //     });
-// // //     return () => unsubscribe();
-// // //   }, [router]);
-
-// // //   const handleLogin = async (e: React.FormEvent) => {
-// // //     e.preventDefault();
-// // //     try {
-// // //       await signInWithEmailAndPassword(auth, email, password);
-// // //       router.push('/chat');
-// // //     } catch (err: any) {
-// // //       setError(err.message);
-// // //     }
-// // //   };
-
-// // //   if (loading) {
-// // //     return <p className="text-center mt-10 text-green-700 font-semibold">Checking authentication...</p>;
-// // //   }
-
-// // //   return (
-// // //     <main
-// // //       className="min-h-screen flex items-center justify-center px-6 py-12"
-// // //       style={{
-// // //         backgroundImage:
-// // //           "url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1470&q=80')",
-// // //         backgroundSize: 'cover',
-// // //         backgroundPosition: 'center',
-// // //       }}
-// // //     >
-// // //       <section className="bg-white bg-opacity-95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-10 flex flex-col">
-// // //         <h1 className="text-4xl font-extrabold mb-8 text-emerald-700 text-center">Welcome Back! 🍲</h1>
-
-// // //         {error && (
-// // //           <div className="mb-6 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-semibold text-center shadow-sm">
-// // //             {error}
-// // //           </div>
-// // //         )}
-
-// // //         <form onSubmit={handleLogin} className="flex flex-col gap-6">
-// // //           <input
-// // //             type="email"
-// // //             placeholder="Email address"
-// // //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// // //             value={email}
-// // //             onChange={(e) => setEmail(e.target.value)}
-// // //             required
-// // //             autoComplete="email"
-// // //           />
-// // //           <input
-// // //             type="password"
-// // //             placeholder="Password"
-// // //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// // //             value={password}
-// // //             onChange={(e) => setPassword(e.target.value)}
-// // //             required
-// // //             autoComplete="current-password"
-// // //           />
-// // //           <button
-// // //             type="submit"
-// // //             className="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:bg-emerald-700 transition transform hover:-translate-y-1"
-// // //           >
-// // //             Login
-// // //           </button>
-// // //         </form>
-
-// // //         <p className="mt-8 text-center text-gray-600">
-// // //           New here?{' '}
-// // //           <span
-// // //             className="text-emerald-600 font-semibold cursor-pointer hover:underline"
-// // //             onClick={() => router.push('/register')}
-// // //           >
-// // //             Create an account
-// // //           </span>
-// // //         </p>
-// // //       </section>
-// // //     </main>
-// // //   );
-// // // }
-// // // 'use client';
-
-// // // import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-// // // import { useRouter } from 'next/navigation';
-// // // import { useEffect, useState } from 'react';
-// // // import { auth } from '@/firebase/firebaseConfig';
-
-// // // export default function LoginPage() {
-// // //   const router = useRouter();
-// // //   const [email, setEmail] = useState('');
-// // //   const [password, setPassword] = useState('');
-// // //   const [error, setError] = useState('');
-// // //   const [loading, setLoading] = useState(true);
-
-// // //   useEffect(() => {
-// // //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// // //       if (user) {
-// // //         router.push('/chat');
-// // //       } else {
-// // //         setLoading(false);
-// // //       }
-// // //     });
-// // //     return () => unsubscribe();
-// // //   }, [router]);
-
-// // //   const handleLogin = async (e: React.FormEvent) => {
-// // //     e.preventDefault();
-// // //     try {
-// // //       await signInWithEmailAndPassword(auth, email, password);
-// // //       router.push('/chat');
-// // //     } catch (err: any) {
-// // //       setError(err.message);
-// // //     }
-// // //   };
-
-// // //   if (loading) {
-// // //     return <p className="text-center mt-10 text-green-700 font-semibold">Checking authentication...</p>;
-// // //   }
-
-// // //   return (
-// // //     <main
-// // //       className="min-h-screen flex items-center justify-center px-6 py-12"
-// // //       style={{
-// // //         backgroundImage:
-// // //           "url('https://images.unsplash.com/photo-1514516873081-56a0649dc9e8?auto=format&fit=crop&w=1470&q=80')",
-// // //         backgroundSize: 'cover',
-// // //         backgroundPosition: 'center',
-// // //       }}
-// // //     >
-// // //       <section className="bg-white bg-opacity-95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-10 flex flex-col">
-// // //         <h1 className="text-4xl font-extrabold mb-8 text-emerald-700 text-center">Welcome Back! 🍲</h1>
-
-// // //         {error && (
-// // //           <div className="mb-6 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-semibold text-center shadow-sm">
-// // //             {error}
-// // //           </div>
-// // //         )}
-
-// // //         <form onSubmit={handleLogin} className="flex flex-col gap-6">
-// // //           <input
-// // //             type="email"
-// // //             placeholder="Email address"
-// // //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// // //             value={email}
-// // //             onChange={(e) => setEmail(e.target.value)}
-// // //             required
-// // //             autoComplete="email"
-// // //           />
-// // //           <input
-// // //             type="password"
-// // //             placeholder="Password"
-// // //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// // //             value={password}
-// // //             onChange={(e) => setPassword(e.target.value)}
-// // //             required
-// // //             autoComplete="current-password"
-// // //           />
-// // //           <button
-// // //             type="submit"
-// // //             className="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:bg-emerald-700 transition transform hover:-translate-y-1"
-// // //           >
-// // //             Login
-// // //           </button>
-// // //         </form>
-
-// // //         <p className="mt-8 text-center text-gray-600">
-// // //           New here?{' '}
-// // //           <span
-// // //             className="text-emerald-600 font-semibold cursor-pointer hover:underline"
-// // //             onClick={() => router.push('/register')}
-// // //           >
-// // //             Create an account
-// // //           </span>
-// // //         </p>
-// // //       </section>
-// // //     </main>
-// // //   );
-// // // }
-// // 'use client';
-
-// // import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-// // import { useRouter } from 'next/navigation';
-// // import { useEffect, useState } from 'react';
-// // import { auth } from '@/firebase/firebaseConfig';
-
-// // export default function LoginPage() {
-// //   const router = useRouter();
-// //   const [email, setEmail] = useState('');
-// //   const [password, setPassword] = useState('');
-// //   const [error, setError] = useState('');
-// //   const [loading, setLoading] = useState(true);
-
-// //   useEffect(() => {
-// //     const unsubscribe = onAuthStateChanged(auth, (user) => {
-// //       if (user) {
-// //         router.push('/chat');
-// //       } else {
-// //         setLoading(false);
-// //       }
-// //     });
-// //     return () => unsubscribe();
-// //   }, [router]);
-
-// //   const handleLogin = async (e: React.FormEvent) => {
-// //     e.preventDefault();
-// //     try {
-// //       await signInWithEmailAndPassword(auth, email, password);
-// //       router.push('/chat');
-// //     } catch (err: any) {
-// //       setError(err.message);
-// //     }
-// //   };
-
-// //   if (loading) {
-// //     return <p className="text-center mt-10 text-green-700 font-semibold">Checking authentication...</p>;
-// //   }
-
-// //   return (
-// //     <main
-// //       className="min-h-screen flex items-center justify-center px-6 py-12 relative"
-// //       style={{
-// //         backgroundImage:
-// //           "url('https://images.unsplash.com/photo-1514516873081-56a0649dc9e8?auto=format&fit=crop&w=1470&q=80')",
-// //         backgroundSize: 'cover',
-// //         backgroundPosition: 'center',
-// //       }}
-// //     >
-// //       {/* Overlay gradient for better contrast */}
-// //       <div className="absolute inset-0 bg-gradient-to-br from-green-900/80 via-green-700/70 to-green-600/80 z-0"></div>
-
-// //       <section className="relative z-10 bg-white bg-opacity-95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-10 flex flex-col items-center">
-// //         {/* Chef hat icon */}
-// //         <img
-// //           src="https://img.icons8.com/fluency/96/000000/chef-hat.png"
-// //           alt="Chef hat icon"
-// //           className="mb-6"
-// //           width={80}
-// //           height={80}
-// //           loading="lazy"
-// //         />
-
-// //         <h1 className="text-4xl font-extrabold mb-8 text-emerald-700 text-center">Welcome Back! 🍲</h1>
-
-// //         {error && (
-// //           <div className="mb-6 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-semibold text-center shadow-sm w-full">
-// //             {error}
-// //           </div>
-// //         )}
-
-// //         <form onSubmit={handleLogin} className="flex flex-col gap-6 w-full">
-// //           <input
-// //             type="email"
-// //             placeholder="Email address"
-// //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// //             value={email}
-// //             onChange={(e) => setEmail(e.target.value)}
-// //             required
-// //             autoComplete="email"
-// //           />
-// //           <input
-// //             type="password"
-// //             placeholder="Password"
-// //             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
-// //             value={password}
-// //             onChange={(e) => setPassword(e.target.value)}
-// //             required
-// //             autoComplete="current-password"
-// //           />
-// //           <button
-// //             type="submit"
-// //             className="w-full py-4 bg-emerald-600 text-white font-semibold rounded-xl shadow-lg hover:bg-emerald-700 transition transform hover:-translate-y-1"
-// //           >
-// //             Login
-// //           </button>
-// //         </form>
-
-// //         <p className="mt-8 text-center text-gray-600">
-// //           New here?{' '}
-// //           <span
-// //             className="text-emerald-600 font-semibold cursor-pointer hover:underline"
-// //             onClick={() => router.push('/register')}
-// //           >
-// //             Create an account
-// //           </span>
-// //         </p>
-// //       </section>
-// //     </main>
-// //   );
-// // }
-// 'use client';
-
-// import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
-// import { useRouter } from 'next/navigation';
-// import { useEffect, useState } from 'react';
-// import { auth } from '@/firebase/firebaseConfig';
-
-// const backgroundOptions = {
-//   warmRustic:
-//     "url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1470&q=80')", // Cozy kitchen warm tone
-//   freshFlatlay:
-//     "url('https://images.unsplash.com/photo-1516685018646-54978f16322a?auto=format&fit=crop&w=1470&q=80')", // Colorful fresh veggies flatlay
-//   minimalistArt:
-//     "linear-gradient(135deg, #ffe5d4 0%, #ffdac1 100%)", // Warm pastel peach gradient
-//   recipeNotebook:
-//     "url('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1470&q=80')", // Notebook with recipe and ingredients
-//   animatedPattern:
-//     "url('https://www.transparenttextures.com/patterns/food.png')", // Food icon pattern (transparenttextures.com)
-// };
-
-// export default function LoginPage() {
-//   const router = useRouter();
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [error, setError] = useState('');
-//   const [loading, setLoading] = useState(true);
-//   const [bgStyle, setBgStyle] = useState('warmRustic');
-
-//   useEffect(() => {
-//     const unsubscribe = onAuthStateChanged(auth, (user) => {
-//       if (user) {
-//         router.push('/chat');
-//       } else {
-//         setLoading(false);
-//       }
-//     });
-//     return () => unsubscribe();
-//   }, [router]);
-
-//   const handleLogin = async (e: React.FormEvent) => {
-//     e.preventDefault();
-//     try {
-//       await signInWithEmailAndPassword(auth, email, password);
-//       router.push('/chat');
-//     } catch (err: any) {
-//       setError(err.message);
-//     }
-//   };
-
-//   if (loading) {
-//     return <p className="text-center mt-10 text-emerald-700 font-semibold">Checking authentication...</p>;
-//   }
-
-//   return (
-//     <main
-//       className="min-h-screen flex items-center justify-center px-6 py-12 relative"
-//       style={{
-//         backgroundImage: backgroundOptions[bgStyle],
-//         backgroundSize: bgStyle === 'minimalistArt' ? 'auto' : 'cover',
-//         backgroundRepeat: bgStyle === 'animatedPattern' ? 'repeat' : 'no-repeat',
-//         backgroundPosition: 'center',
-//       }}
-//     >
-//       {/* Overlay gradient for better contrast and warmth */}
-//       <div className="absolute inset-0 bg-gradient-to-br from-amber-900/80 via-amber-700/70 to-amber-600/80 z-0"></div>
-
-//       <section className="relative z-10 bg-white bg-opacity-95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-10 flex flex-col items-center">
-//         <img
-//           src="https://img.icons8.com/fluency/96/000000/chef-hat.png"
-//           alt="Chef hat icon"
-//           className="mb-6"
-//           width={80}
-//           height={80}
-//           loading="lazy"
-//         />
-
-//         <h1 className="text-4xl font-extrabold mb-4 text-amber-700 text-center">Welcome Back! 🍲</h1>
-
-//         <div className="mb-6 w-full">
-//           <label htmlFor="bgSelect" className="block mb-2 font-semibold text-amber-700">
-//             Choose background style:
-//           </label>
-//           <select
-//             id="bgSelect"
-//             value={bgStyle}
-//             onChange={(e) => setBgStyle(e.target.value)}
-//             className="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
-//           >
-//             <option value="warmRustic">Warm Rustic Kitchen Vibes</option>
-//             <option value="freshFlatlay">Bright Fresh Ingredients Flatlay</option>
-//             <option value="minimalistArt">Minimalist Modern Food Art</option>
-//             <option value="recipeNotebook">Recipe Notebook & Ingredients</option>
-//             <option value="animatedPattern">Animated / Illustrated Pattern</option>
-//           </select>
-//         </div>
-
-//         {error && (
-//           <div className="mb-6 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-semibold text-center shadow-sm w-full">
-//             {error}
-//           </div>
-//         )}
-
-//         <form onSubmit={handleLogin} className="flex flex-col gap-6 w-full">
-//           <input
-//             type="email"
-//             placeholder="Email address"
-//             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
-//             value={email}
-//             onChange={(e) => setEmail(e.target.value)}
-//             required
-//             autoComplete="email"
-//           />
-//           <input
-//             type="password"
-//             placeholder="Password"
-//             className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 transition"
-//             value={password}
-//             onChange={(e) => setPassword(e.target.value)}
-//             required
-//             autoComplete="current-password"
-//           />
-//           <button
-//             type="submit"
-//             className="w-full py-4 bg-amber-600 text-white font-semibold rounded-xl shadow-lg hover:bg-amber-700 transition transform hover:-translate-y-1"
-//           >
-//             Login
-//           </button>
-//         </form>
-
-//         <p className="mt-8 text-center text-gray-600">
-//           New here?{' '}
-//           <span
-//             className="text-amber-600 font-semibold cursor-pointer hover:underline"
-//             onClick={() => router.push('/register')}
-//           >
-//             Create an account
-//           </span>
-//         </p>
-//       </section>
-//     </main>
-//   );
-// }
 'use client';
 
-import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { auth } from '@/firebase/firebaseConfig';
+import { ChefHat, Mail, Lock, ArrowRight, Loader2, AlertCircle, X, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -785,6 +12,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -799,8 +28,35 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+    
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      router.push('/chat');
+    } catch (err: any) {
+      let errorMessage = 'Failed to sign in';
+      
+      if (err.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email';
+      } else if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password';
+      } else if (err.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid login credentials';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Optional: Google sign-in
+  const handleGoogleSignIn = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
       router.push('/chat');
     } catch (err: any) {
       setError(err.message);
@@ -808,78 +64,238 @@ export default function LoginPage() {
   };
 
   if (loading) {
-    return <p className="text-center mt-10 text-green-700 font-semibold">Checking authentication...</p>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-green-50">
+        <div className="text-center">
+          <div className="relative">
+            <ChefHat className="w-16 h-16 mx-auto mb-4 text-emerald-600 animate-bounce" />
+            <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full animate-ping"></div>
+          </div>
+          <p className="text-gray-600 text-lg font-medium">Loading NutriChef...</p>
+          <div className="mt-4 w-32 h-2 bg-emerald-100 rounded-full mx-auto overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full animate-pulse w-3/4"></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main
-      className="min-h-screen flex items-center justify-center px-6 py-12 relative"
-      style={{
-        backgroundImage:
-          "url('https://www.transparenttextures.com/patterns/food.png')",
-        backgroundSize: 'auto',
-        backgroundRepeat: 'repeat',
-        backgroundPosition: 'center',
-      }}
-    >
-      {/* Overlay gradient for soft green contrast */}
-      <div className="absolute inset-0 bg-gradient-to-br from-green-900/70 via-green-700/60 to-green-600/70 z-0"></div>
-
-      <section className="relative z-10 bg-white bg-opacity-95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-10 flex flex-col items-center">
-        <img
-          src="https://img.icons8.com/fluency/96/000000/chef-hat.png"
-          alt="Chef hat icon"
-          className="mb-6"
-          width={80}
-          height={80}
-          loading="lazy"
+    <main className="min-h-screen flex flex-col relative">
+      {/* Dynamic Background with Food Image Overlay */}
+      <div className="fixed inset-0 -z-10">
+        <div 
+          className="absolute inset-0 opacity-20"
+          style={{
+            backgroundImage: "url('https://images.unsplash.com/photo-1606787366850-de6330128bfc?auto=format&fit=crop&w=2070&q=80')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
         />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/80 via-green-800/80 to-emerald-700/80"></div>
+        
+        {/* Floating Food Elements */}
+        <div className="absolute top-20 left-10 w-16 h-16 text-white/10 animate-float">
+          <ChefHat className="w-full h-full" />
+        </div>
+        <div className="absolute top-40 right-20 w-20 h-20 text-white/10 animate-float delay-1000">
+          <ChefHat className="w-full h-full" />
+        </div>
+        <div className="absolute bottom-40 left-1/4 w-24 h-24 text-white/10 animate-float delay-2000">
+          <ChefHat className="w-full h-full" />
+        </div>
+      </div>
 
-        <h1 className="text-4xl font-extrabold mb-4 text-green-700 text-center">Welcome Back! 🍲</h1>
+      {/* Back to Home Button */}
+      <div className="absolute top-6 left-6 z-10">
+        <button 
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 px-4 py-2 text-white hover:text-emerald-200 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Home</span>
+        </button>
+      </div>
 
-        {error && (
-          <div className="mb-6 px-4 py-3 bg-red-100 text-red-700 rounded-lg font-semibold text-center shadow-sm w-full">
-            {error}
+      {/* Login Form Card */}
+      <div className="flex-grow flex items-center justify-center px-6 py-16 relative z-10">
+        <div className="w-full max-w-md">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden transform transition-all">
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-green-600 px-8 pt-12 pb-10">
+              <div className="flex justify-center">
+                <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-sm">
+                  <ChefHat className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <h1 className="text-3xl font-bold text-white text-center mt-4">Welcome Back</h1>
+              <p className="text-emerald-100 text-center mt-2">Log in to your NutriChef account</p>
+            </div>
+
+            {/* Card Body */}
+            <div className="px-8 py-8">
+              {error && (
+                <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-center gap-3 animate-fade-in">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <p className="text-sm">{error}</p>
+                  <button 
+                    onClick={() => setError('')} 
+                    className="ml-auto text-red-400 hover:text-red-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block text-gray-700 text-sm font-medium mb-2" htmlFor="email">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Mail className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      className="pl-12 pr-4 py-4 w-full border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-white/70 backdrop-blur-sm"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-gray-700 text-sm font-medium" htmlFor="password">
+                      Password
+                    </label>
+                    <button 
+                      type="button"
+                      className="text-xs text-emerald-600 hover:text-emerald-800 transition-colors"
+                      onClick={() => {/* Handle forgot password */}}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <Lock className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-12 pr-12 py-4 w-full border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all bg-white/70 backdrop-blur-sm"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                    />
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+                      <button
+                        type="button"
+                        className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <span className="text-xs">Hide</span>
+                        ) : (
+                          <span className="text-xs">Show</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-semibold rounded-xl shadow-lg hover:from-emerald-700 hover:to-green-700 transition-all transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 flex items-center justify-center"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <>
+                        Sign In
+                        <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-8">
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">or continue with</span>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  >
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                    <span className="text-gray-700">Google</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-8 text-center">
+                <p className="text-gray-600">
+                  New to NutriChef?{' '}
+                  <button
+                    onClick={() => router.push('/register')}
+                    className="text-emerald-600 font-semibold hover:text-emerald-800 transition-colors"
+                  >
+                    Create an account
+                  </button>
+                </p>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        <form onSubmit={handleLogin} className="flex flex-col gap-6 w-full">
-          <input
-            type="email"
-            placeholder="Email address"
-            className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            className="p-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 transition"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-          <button
-            type="submit"
-            className="w-full py-4 bg-green-600 text-white font-semibold rounded-xl shadow-lg hover:bg-green-700 transition transform hover:-translate-y-1"
-          >
-            Login
-          </button>
-        </form>
+      {/* Footer */}
+      <footer className="py-6 px-8 text-center text-white/70 text-sm z-10">
+        <p>© 2024 NutriChef. All rights reserved.</p>
+      </footer>
 
-        <p className="mt-8 text-center text-gray-600">
-          New here?{' '}
-          <span
-            className="text-green-600 font-semibold cursor-pointer hover:underline"
-            onClick={() => router.push('/register')}
-          >
-            Create an account
-          </span>
-        </p>
-      </section>
+      {/* Custom Styles */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-float {
+          animation: float 6s ease-in-out infinite;
+        }
+        
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+        
+        .delay-1000 { animation-delay: 1000ms; }
+        .delay-2000 { animation-delay: 2000ms; }
+      `}</style>
     </main>
   );
 }
