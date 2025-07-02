@@ -815,7 +815,7 @@ export default function ChatPage() {
                     className={`p-2.5 rounded-xl transition-all ${
                       (!input.trim() && !isRecording)
                         ? isDarkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
-                        : isDarkMode `  `
+                        : isDarkMode 
                           ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg' 
                           : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg'
                     }`}
