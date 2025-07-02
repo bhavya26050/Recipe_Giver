@@ -301,6 +301,8 @@ export default function LandingPage() {
               <h2 className="text-4xl font-bold mb-4">Join the Culinary Revolution!</h2>
               <p className="text-emerald-100 text-xl mb-12 max-w-2xl mx-auto">
                 Thousands of home cooks have already transformed their kitchens with NutriChef
+              </p>
+              
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
                 {[
                   {
@@ -339,9 +341,6 @@ export default function LandingPage() {
                     </div>
                   );
                 })}
-              </div>
-              </p>
-              <div className="flex justify-center items-center gap-6 mt-8">
               </div>
             </div>
           </div>
