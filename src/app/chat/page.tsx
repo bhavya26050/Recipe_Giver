@@ -1,17 +1,17 @@
 'use client';
 
-import { MouseEvent, SetSetStateAction, useEffect, useRef, useState } from 'react';
+import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
 import { saveUserHistory } from '@/firebase/history';
 import { useRouter } from 'next/navigation';
 import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
-         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare, 
+         Sun, Moon, Star, Heart, Coffee, Search, Settings, Sparkles, Calendar } from 'lucide-react';
 import { collection, getDocs, query, orderBy , deleteDoc, doc } from "firebase/firestore";
 import { db } from "@/firebase/firebaseConfig";
 
-// Add this global declaration above your component or at the top of the file
+// Global declaration for speech recognition
 declare global {
   interface Window {
     webkitSpeechRecognition: any;
@@ -19,6 +19,7 @@ declare global {
 }
 
 export default function ChatPage() {
+  // ✅ ALL STATE DECLARATIONS
   const [messages, setMessages] = useState([
     { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
   ]);
@@ -27,60 +28,78 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState<number | null>(null);
-  type PreviousChat = {
-    id: number;
-    title: string;
-    messages: { from: string; text: string; id: number }[];
-  };
-  const [previousChats, setPreviousChats] = useState<PreviousChat[]>([]);
+  const [previousChats, setPreviousChats] = useState<any[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editedText, setEditedText] = useState('');
-  
-  type SpeechRecognition = typeof window.webkitSpeechRecognition;
-  
-  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null);
   const [currentChatId, setCurrentChatId] = useState<number | null>(null);
-  
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(true);
+  const [hoveredMessage, setHoveredMessage] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [lastIngredient, setLastIngredient] = useState('');
+  const [ingredientOffset, setIngredientOffset] = useState(0);
+  const [relatedSuggestions, setRelatedSuggestions] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // Ingredient pagination state
-  const [ingredientOffset, setIngredientOffset] = useState(0);
-  const [lastIngredient, setLastIngredient] = useState('');
-
-  // Quick recipe states
-  const [quickIngredient, setQuickIngredient] = useState('');
-  const [quickRecipes, setQuickRecipes] = useState<string[]>([]);
-  const [quickOffset, setQuickOffset] = useState(0);
-  const [quickHasMore, setQuickHasMore] = useState(true);
-  const [quickLoading, setQuickLoading] = useState(false);
-
-  // Related suggestions state
-  const [relatedSuggestions, setRelatedSuggestions] = useState<string[]>([]);
-
-  // Listen for clicks outside the sidebar to close it on mobile
+  // ✅ THEME DETECTION
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const sidebarElement = document.getElementById('sidebar');
-      const menuButton = document.getElementById('menu-button');
+    if (typeof window !== 'undefined') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(prefersDark);
       
-      if (isSidebarOpen && sidebarElement && 
-          !sidebarElement.contains(event.target as Node) && 
-          menuButton && !menuButton.contains(event.target as Node)) {
-        setIsSidebarOpen(false);
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
+      mediaQuery.addEventListener('change', handleChange);
+      
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, []);
+
+  // ✅ APPLY THEME STYLES
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const root = document.documentElement;
+      if (isDarkMode) {
+        root.classList.add('dark');
+        document.body.style.backgroundColor = '#0f172a';
+      } else {
+        root.classList.remove('dark');
+        document.body.style.backgroundColor = '#f8fafc';
       }
-    };
-    
-    document.addEventListener('mousedown', handleClickOutside as any);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside as any);
-    };
+    }
+  }, [isDarkMode]);
+
+  // ✅ SIDEBAR CLICK OUTSIDE HANDLER
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleClickOutside = (event: MouseEvent) => {
+        const sidebarElement = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        
+        if (isSidebarOpen && sidebarElement && 
+            !sidebarElement.contains(event.target as Node) && 
+            menuButton && !menuButton.contains(event.target as Node)) {
+          setIsSidebarOpen(false);
+        }
+      };
+      
+      document.addEventListener('mousedown', handleClickOutside as any);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside as any);
+      };
+    }
   }, [isSidebarOpen]);
 
+  // ✅ SPEECH RECOGNITION SETUP
   useEffect(() => {
-    // Initialize speech recognition if browser supports it
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
       const SpeechRecognition = window.webkitSpeechRecognition as any;
       const recognition = new SpeechRecognition();
@@ -105,35 +124,89 @@ export default function ChatPage() {
     }
   }, []);
 
+  // ✅ FIREBASE AUTH
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.push('/login');
       } else {
         setUserEmail(user.email || '');
+        setIsLoading(false);
 
-        // Fetch chat history from Firestore
-        const historyRef = collection(db, 'users', user.uid, 'history');
-        const q = query(historyRef, orderBy('timestamp', 'desc'));
-        const querySnapshot = await getDocs(q);
+        try {
+          const historyRef = collection(db, 'users', user.uid, 'history');
+          const q = query(historyRef, orderBy('timestamp', 'desc'));
+          const querySnapshot = await getDocs(q);
 
-        // Convert Firestore docs to your PreviousChat format
-        const chats = querySnapshot.docs.map((doc, idx) => ({
-          id: doc.id,
-          title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
-          messages: [
-            { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
-            { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
-          ]
-        }));
+          const chats = querySnapshot.docs.map((doc, idx) => ({
+            id: doc.id,
+            title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
+            messages: [
+              { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
+              { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
+            ]
+          }));
 
-        setPreviousChats(chats);
+          setPreviousChats(chats);
+        } catch (error) {
+          console.error('Error loading chat history:', error);
+        }
       }
     });
     return () => unsubscribe();
   }, [router]);
 
-  // Ingredient-based recipe fetcher with pagination
+  // ✅ AUTO SCROLL
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isTyping]);
+
+  // ✅ HELPER FUNCTIONS
+  function cleanRecipeResponse(response: string): string {
+    const lines = response.split('\n');
+    const cleanedLines = [];
+    let seenRelatedSection = false;
+    
+    for (const line of lines) {
+      if (line.includes('You might also enjoy') || line.includes('🍽️')) {
+        if (!seenRelatedSection) {
+          cleanedLines.push(line);
+          seenRelatedSection = true;
+        }
+      } else {
+        cleanedLines.push(line);
+      }
+    }
+    
+    return cleanedLines.join('\n');
+  }
+
+  function renderFormattedText(text: string) {
+    const isDark = isDarkMode;
+    
+    let formatted = text
+      .replace(/^### (.+)$/gm, `<h3 class="text-lg font-semibold mt-4 mb-2 ${isDark ? 'text-emerald-400 border-emerald-600/30' : 'text-emerald-700 border-emerald-200'} border-b pb-1">$1</h3>`)
+      .replace(/^## (.+)$/gm, `<h2 class="text-xl font-bold mt-4 mb-3 ${isDark ? 'text-emerald-300 border-emerald-500/30' : 'text-emerald-800 border-emerald-300'} border-b-2 pb-2">$1</h2>`)
+      .replace(/^• (.+)$/gm, `<li class="ml-4 mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}">$1</li>`)
+      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, `<li class="ml-4 mb-3 font-medium"><span class="${isDark ? 'text-emerald-400' : 'text-emerald-600'} font-bold">$1.</span> <span class="${isDark ? 'text-gray-300' : 'text-gray-700'}">$2</span></li>`)
+      .replace(/\*\*(.+?)\*\*/g, `<strong class="font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}">$1</strong>`)
+      .replace(/\*(.+?)\*/g, `<em class="italic ${isDark ? 'text-gray-400' : 'text-gray-600'}">$1</em>`)
+      .replace(/\n\n/g, '</p><p class="mb-3">')
+      .replace(/\n/g, '<br>');
+    
+    formatted = `<div class="prose max-w-none ${isDark ? 'prose-invert' : 'prose-emerald'}"><p class="mb-3 ${isDark ? 'text-gray-300' : 'text-gray-800'}">${formatted}</p></div>`;
+    
+    formatted = formatted
+      .replace(/<p class="mb-3[^"]*"><li/g, '<ul class="list-none space-y-2 mb-4"><li')
+      .replace(/<\/li><\/p>/g, '</li></ul>')
+      .replace(/<\/li><br><li/g, '</li><li');
+    
+    return formatted;
+  }
+
+  // ✅ RECIPE FUNCTIONS
   async function getIngredientRecipes(ingredient: string, more = false) {
     let newOffset = ingredientOffset;
     if (!more || lastIngredient !== ingredient) {
@@ -167,7 +240,6 @@ export default function ChatPage() {
 
       const data = await response.json();
 
-      // 🟢 ADD THIS CHECK:
       if (!data.response || data.response.trim() === "" || data.response.toLowerCase().includes("no more recipes")) {
         setMessages(prev => [
           ...prev,
@@ -194,480 +266,41 @@ export default function ChatPage() {
     }
   }
 
-  // Add this function after your existing functions
-  const enhanceRecipeWithML = async (recipe: string, title: string) => {
+  const getMealTypeRecipes = async (mealType: string, emoji: string) => {
+    setIsTyping(true);
     try {
-      // Extract ingredients from recipe text for ML analysis
-      const ingredientsMatch = recipe.match(/🥘 Ingredients:(.*?)👨‍🍳 Instructions:/s);
-      const ingredients = ingredientsMatch ? ingredientsMatch[1].trim() : '';
-      
-      // Get dietary classification
-      const dietaryResponse = await fetch('http://localhost:5000/api/classify-dietary', {
+      const response = await fetch('http://localhost:5000/api/recipes-by-meal-type', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients, title })
+        body: JSON.stringify({ meal_type: mealType, limit: 8 })
       });
-      
-      const dietaryData = await dietaryResponse.json();
-      
-      return dietaryData.success ? dietaryData.dietary_analysis : null;
-    } catch (error) {
-      console.error('Error enhancing recipe with ML:', error);
-      return null;
-    }
-  };
-
-  // Update your handleSend function to include ML enhancement
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    
-    // Add user message
-    const messageId = Date.now();
-    const userMessage = input;
-
-    // Add user message to state first for immediate UI feedback
-    setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
-    setInput('');
-    setIsTyping(true);
-    inputRef.current?.focus();
-
-    // Ingredient search detection
-    const ingredientMatch = userMessage.match(/recipes?\s+(?:from|with|using)\s+([a-zA-Z]+)/i);
-    const moreMatch = userMessage.match(/10 more recipes?\s+(?:from|with|using)?\s*([a-zA-Z]*)/i);
-
-    if (ingredientMatch) {
-      const ingredient = ingredientMatch[1].toLowerCase();
-      await getIngredientRecipes(ingredient);
-      setIsTyping(false);
-      return;
-    }
-    if (moreMatch) {
-      // If user says "10 more recipes from banana" or just "10 more recipes"
-      const ingredient = moreMatch[1] ? moreMatch[1].toLowerCase() : lastIngredient;
-      await getIngredientRecipes(ingredient, true);
-      setIsTyping(false);
-      return;
-    }
-
-    try {
-      // Prepare conversation history (last 8 messages for better context)
-      const conversationHistory = messages
-        .slice(-8)
-        .map(msg => ({ 
-          role: msg.from === 'user' ? 'user' : 'assistant', 
-          content: msg.text.replace(/\*.*?\*/g, '').substring(0, 500)
-        }));
-        
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: userMessage,
-          history: conversationHistory 
-        }),
-      });
-
-      setIsTyping(false);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        setMessages(prev => [
-          ...prev,
-          { 
-            from: 'bot', 
-            text: `Oops! 😅 I'm having a little trouble right now. But don't worry - I'm still here to help! Try asking again, or let me know if you'd like some quick recipe ideas while I get back on my feet! 🍳`, 
-            id: Date.now() 
-          }
-        ]);
-        return;
-      }
       
       const data = await response.json();
-      let recipeResponse = data.response;
       
-      // 🆕 ENHANCE WITH ML FEATURES
-      if (data.source === 'database' || data.source === 'api') {
-        const recipeTitle = extractTitleFromRecipe(recipeResponse) || userMessage;
+      if (data.success && data.recipes.length > 0) {
+        let recipeText = `## ${emoji} ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} Recipe Ideas\n\n`;
+        recipeText += `*Here are some delicious ${mealType} options for you!* 🍳\n\n`;
         
-        // Get ML enhancements
-        const [dietaryInfo, relatedRecipes] = await Promise.all([
-          enhanceRecipeWithML(recipeResponse, recipeTitle),
-          callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle })
-        ]);
-        
-        // Add dietary classification to response
-        if (dietaryInfo) {
-          let dietaryTags = '';
-          if (dietaryInfo.dietary_tags && dietaryInfo.dietary_tags.length > 0) {
-            const tagEmojis = {
-              'vegetarian': '🌱',
-              'vegan': '🌿', 
-              'gluten_free': '🌾',
-              'dairy_free': '🥛',
-              'keto_friendly': '🥑',
-              'high_protein': '💪',
-              'low_carb': '📉'
-            };
-            
-            dietaryTags = '\n\n### 🏷️ Dietary Info:\n' +
-              dietaryInfo.dietary_tags
-                .map(tag => `${tagEmojis[tag] || '✅'} ${tag.replace('_', ' ').toUpperCase()}`)
-                .join(' • ');
-          }
+        data.recipes.forEach((recipe: any, index: number) => {
+          recipeText += `**${index + 1}. ${recipe.title}**\n`;
           
-          // Insert dietary info before Chef's Tips
-          recipeResponse = recipeResponse.replace(
-            '### 💡 Chef\'s Tips:',
-            `${dietaryTags}\n\n### 💡 Chef\'s Tips:`
-          );
-        }
+          if (recipe.dietary_info && recipe.dietary_info.dietary_tags.length > 0) {
+            const tags = recipe.dietary_info.dietary_tags.slice(0, 3).join(', ');
+            recipeText += `   *${tags}*\n`;
+          }
+          recipeText += '\n';
+        });
         
-        // Clean up duplicate related recipes
-        const existingRelated = recipeResponse.match(/🍽️.*?You might also enjoy:.*?(?=\n---|\n\n---|\n🍽️|$)/s);
-        if (existingRelated) {
-          recipeResponse = recipeResponse.replace(existingRelated[0], '');
-        }
+        recipeText += `**Want the full recipe for any of these?** Just ask me! 😊`;
         
-        // Add clean related recipes section
-        if (relatedRecipes.suggestions && relatedRecipes.suggestions.length > 0) {
-          recipeResponse += `\n\n### 🍽️ You might also enjoy:\n` +
-            relatedRecipes.suggestions.map(r => `• ${r}`).join('\n');
-        }
-      }
-      
-      // Get related recipes from Flask backend
-      // const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
-      // let relatedText = '';
-      // if (recipeTitle) {
-      //   const related = await callBackend('http://localhost:5000/api/related-recipes', { dish_name: recipeTitle });
-      //   if (related.suggestions && related.suggestions.length > 0) {
-      //     relatedText = `\n\n🍽️ **You might also enjoy:**\n` +
-      //       related.suggestions.map(r => `- ${r}`).join('\n');
-      //   }
-      // }
-      const recipeTitle = userMessage || extractTitleFromRecipe(recipeResponse);
-
-let relatedText = '';
-
-if (recipeTitle) {
-  try {
-    const related = await callBackend('http://localhost:5000/api/related-recipes', {
-      dish_name: recipeTitle,
-    });
-
-    if (related.suggestions && related.suggestions.length > 0) {
-      relatedText =
-        `\n\n🍽️ **You might also enjoy:**\n` +
-        related.suggestions.map((r: string) => `- ${r}`).join('\n');
-    }
-  } catch (error) {
-    console.error("❌ Failed to fetch related recipes:", error);
-  }
-}
-
-
-      // Append related recipes to the bot's response
-      recipeResponse += relatedText;
-      
-      setMessages(prev => [
-        ...prev,
-        { from: 'bot', text: recipeResponse, id: Date.now() }
-      ]);
-      
-      const user = auth.currentUser;
-      if (user && userMessage && typeof recipeResponse !== "undefined" &&
-          recipeResponse !== null && recipeResponse !== "" && 
-          data.source !== "conversation") {
-        await saveUserHistory(user.uid, userMessage, recipeResponse);
+        setMessages(prev => [...prev, { from: 'bot', text: recipeText, id: Date.now() }]);
       }
     } catch (error) {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        { 
-          from: 'bot', 
-          text: 'Something went wrong on my end! 😔 But I\'m still here to help you create something delicious. What would you like to cook today? 🍳✨', 
-          id: Date.now() 
-        }
-      ]);
-      console.error('Error calling chat API:', error);
+      console.error(`Error getting ${mealType} recipes:`, error);
     }
+    setIsTyping(false);
   };
 
-  const toggleVoiceRecording = () => {
-    if (!speechRecognition) {
-      alert('Your browser does not support speech recognition');
-      return;
-    }
-    
-    if (isRecording) {
-      speechRecognition.stop();
-      setIsRecording(false);
-    } else {
-      speechRecognition.start();
-      setIsRecording(true);
-    }
-  };
-
-  const startEditing = (messageId: number, text: string) => {
-    setEditingMessageId(messageId);
-    setEditedText(text);
-  };
-
-  const saveEdit = () => {
-    if (!editedText.trim()) return;
-    
-    setMessages(messages.map(msg => 
-      msg.id === editingMessageId 
-        ? { ...msg, text: editedText }
-        : msg
-    ));
-    
-    setEditingMessageId(null);
-    setEditedText('');
-  };
-
-  const cancelEdit = () => {
-    setEditingMessageId(null);
-    setEditedText('');
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push('/login');
-  };
-  
-  const clearChat = () => {
-    // Always create a new chat, regardless of whether there are messages
-    // Save current chat to previous chats if it has more than one message
-    if (messages.length > 1) {
-      const firstUserMsg = messages.find(msg => msg.from === 'user');
-      if (firstUserMsg) {
-        const newChatId = Date.now();
-        const newChat = {
-          id: newChatId,
-          title: firstUserMsg.text.length > 25 
-            ? firstUserMsg.text.substring(0, 25) + '...' 
-            : firstUserMsg.text,
-          messages: [...messages]
-        };
-        
-        setPreviousChats(prev => [newChat, ...prev]);
-      }
-    }
-    
-    // Clear current chat
-    setCurrentChatId(null);
-    setMessages([
-      { from: 'bot', text: 'Chat cleared! How else can I help you today?', id: Date.now() }
-    ]);
-    
-    // Close sidebar on mobile after creating new chat
-    if (window.innerWidth < 768) {
-      setIsSidebarOpen(false);
-    }
-    
-    // Focus on input field after clearing
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 100);
-  };
-
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const deleteChat = async(chatId: number | null, e: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent the click from bubbling up to the parent button
-    e.stopPropagation();
-    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
-
-  // Remove from Firestore
-  const user = auth.currentUser;
-  if (user && chatId !== null) {
-    try {
-      await deleteDoc(doc(db, 'users', user.uid, 'history', String(chatId)));
-      console.log("Chat history deleted from Firestore:", chatId);
-    } catch (error) {
-      console.error("Error deleting chat from Firestore:", error);
-    }
-  }
-    
-    // If this is the current chat, reset to a new chat
-    if (chatId === currentChatId) {
-      setCurrentChatId(null);
-      setMessages([
-        { from: 'bot', text: 'Chat deleted! How else can I help you today?', id: Date.now() }
-      ]);
-    }
-    
-    // Remove the chat from previous chats
-    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
-  };
-
-  const restorePreviousChat = (chatId: number) => {
-    const selectedChat = previousChats.find(chat => chat.id === chatId);
-    if (selectedChat && selectedChat.messages) {
-      setCurrentChatId(chatId);
-      setMessages(selectedChat.messages);
-      
-      // Close sidebar on mobile after selecting a chat
-      if (window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      }
-    }
-  };
-
-  const giveFeedback = (msgId: number, type: string) => {
-    setShowFeedback(null);
-    // In a real app, you would send this feedback to your backend
-    console.log(`Feedback ${type} for message ${msgId}`);
-  };
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
-
-  // Create a theme toggler
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  // Apply theme to body
-  useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-  }, [isDarkMode]);
-
-  // Add this function to display formatted markdown
-  function renderFormattedText(text: string) {
-    // Convert markdown-style formatting
-    let formatted = text
-      // Headers
-      .replace(/^### (.+)$/gm, '<h3 class="text-lg font-semibold mt-4 mb-2 text-emerald-700">$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2 class="text-xl font-bold mt-4 mb-3 text-emerald-800">$1</h2>')
-      
-      // Lists
-      .replace(/^• (.+)$/gm, '<li class="ml-4 mb-1">$1</li>')
-      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, '<li class="ml-4 mb-2 font-medium">$1. $2</li>')
-      
-      // Bold text
-      .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      
-      // Italic text
-      .replace(/\*(.+?)\*/g, '<em class="italic">$1</em>')
-      
-      // Line breaks
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>');
-    
-    // Wrap in paragraphs
-    formatted = `<div class="prose prose-emerald max-w-none"><p>${formatted}</p></div>`;
-    
-    // Fix list wrapping
-    formatted = formatted
-      .replace(/<p><li/g, '<ul><li')
-      .replace(/<\/li><\/p>/g, '</li></ul>')
-      .replace(/<\/li><br><li/g, '</li><li');
-    
-    return formatted;
-  }
-
-  const handleQuickSearch = async () => {
-    setQuickLoading(true);
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: 0 }),
-    });
-    const data = await res.json();
-    if (data.source?.includes('ingredient_search')) {
-      const newRecipes = data.response.split('\n');
-      setQuickRecipes(newRecipes);
-      setQuickOffset(10);
-      setQuickHasMore(newRecipes.length === 10);
-    } else {
-      setQuickRecipes([data.response]);
-      setQuickHasMore(false);
-    }
-    setQuickLoading(false);
-  };
-
-  const handleQuickShowMore = async () => {
-    setQuickLoading(true);
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: `recipes with ${quickIngredient}`, offset: quickOffset }),
-    });
-    const data = await res.json();
-    if (data.source?.includes('ingredient_search')) {
-      const moreRecipes = data.response.split('\n');
-      setQuickRecipes(prev => [...prev, ...moreRecipes]);
-      setQuickOffset(prev => prev + 10);
-      setQuickHasMore(moreRecipes.length === 10);
-    } else {
-      setQuickHasMore(false);
-    }
-    setQuickLoading(false);
-  };
-
-  async function handleRecipeClick(dishName: string) {
-    // ...your code to show the recipe...
-    const related = await callBackend('/api/related-recipes', { dish_name: dishName });
-    setRelatedSuggestions(related.suggestions || []);
-  }
-
-  async function callBackend(endpoint: string, data: any) {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Backend error: ${response.status}`);
-    return await response.json();
-  }
-
-  // Add helper function to extract recipe title
-  const extractTitleFromRecipe = (recipe: string): string => {
-    const titleMatch = recipe.match(/## (.+)/);
-    return titleMatch ? titleMatch[1].trim() : '';
-  };
-
-  // Add this component before your main return statement
-  const QuickActions = () => (
-    <div className="mb-4 flex flex-wrap gap-2">
-      <button
-        onClick={() => generateMealPlan()}
-        className="px-3 py-1.5 bg-emerald-500 text-white rounded-md text-sm hover:bg-emerald-600 transition"
-      >
-        📅 Weekly Meal Plan
-      </button>
-      <button
-        onClick={() => getBreakfastRecipes()}
-        className="px-3 py-1.5 bg-orange-500 text-white rounded-md text-sm hover:bg-orange-600 transition"
-      >
-        🌅 Breakfast Ideas
-      </button>
-      <button
-        onClick={() => getLunchRecipes()}
-        className="px-3 py-1.5 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition"
-      >
-        🍽️ Lunch Ideas
-      </button>
-      <button
-        onClick={() => getDinnerRecipes()}
-        className="px-3 py-1.5 bg-purple-500 text-white rounded-md text-sm hover:bg-purple-600 transition"
-      >
-        🌙 Dinner Ideas
-      </button>
-    </div>
-  );
-
-  // Add these functions for quick actions
   const generateMealPlan = async () => {
     setIsTyping(true);
     try {
@@ -700,52 +333,201 @@ if (recipeTitle) {
     setIsTyping(false);
   };
 
-  const getMealTypeRecipes = async (mealType: string, emoji: string) => {
-    setIsTyping(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/recipes-by-meal-type', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meal_type: mealType, limit: 8 })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success && data.recipes.length > 0) {
-        let recipeText = `## ${emoji} ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} Recipe Ideas\n\n`;
-        recipeText += `*Here are some delicious ${mealType} options for you!* 🍳\n\n`;
-        
-        data.recipes.forEach((recipe: any, index: number) => {
-          recipeText += `**${index + 1}. ${recipe.title}**\n`;
-          
-          // Add dietary tags if available
-          if (recipe.dietary_info && recipe.dietary_info.dietary_tags.length > 0) {
-            const tags = recipe.dietary_info.dietary_tags.slice(0, 3).join(', ');
-            recipeText += `   *${tags}*\n`;
-          }
-          recipeText += '\n';
-        });
-        
-        recipeText += `**Want the full recipe for any of these?** Just ask me! 😊`;
-        
-        setMessages(prev => [...prev, { from: 'bot', text: recipeText, id: Date.now() }]);
-      }
-    } catch (error) {
-      console.error(`Error getting ${mealType} recipes:`, error);
-    }
-    setIsTyping(false);
-  };
-
   const getBreakfastRecipes = () => getMealTypeRecipes('breakfast', '🌅');
   const getLunchRecipes = () => getMealTypeRecipes('lunch', '🍽️');
   const getDinnerRecipes = () => getMealTypeRecipes('dinner', '🌙');
 
+  // ✅ MAIN FUNCTIONS
+  const handleSend = async () => {
+    if (!input.trim()) return;
+    
+    const messageId = Date.now();
+    const userMessage = input;
+
+    setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
+    setInput('');
+    setIsTyping(true);
+    
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message: userMessage,
+          history: messages.slice(-5) // Last 5 messages for context
+        }),
+      });
+
+      setIsTyping(false);
+      
+      if (!response.ok) {
+        setMessages(prev => [
+          ...prev,
+          { 
+            from: 'bot', 
+            text: `Sorry, I'm having trouble right now. Please try again! 🍳`, 
+            id: Date.now() 
+          }
+        ]);
+        return;
+      }
+      
+      const data = await response.json();
+      const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
+      
+      setMessages(prev => [
+        ...prev,
+        { from: 'bot', text: recipeResponse, id: Date.now() }
+      ]);
+      
+      // Save to Firebase if user is logged in
+      const user = auth.currentUser;
+      if (user && userMessage && recipeResponse) {
+        try {
+          await saveUserHistory(user.uid, userMessage, recipeResponse);
+        } catch (error) {
+          console.error('Error saving to history:', error);
+        }
+      }
+      
+    } catch (error) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        { 
+          from: 'bot', 
+          text: 'Something went wrong! Please try again. 🍳', 
+          id: Date.now() 
+        }
+      ]);
+      console.error('Error calling chat API:', error);
+    }
+  };
+
+  // ✅ OTHER FUNCTIONS
+  const toggleVoiceRecording = () => {
+    if (!speechRecognition) {
+      alert('Your browser does not support speech recognition');
+      return;
+    }
+    
+    if (isRecording) {
+      speechRecognition.stop();
+      setIsRecording(false);
+    } else {
+      speechRecognition.start();
+      setIsRecording(true);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+  
+  const clearChat = () => {
+    setMessages([
+      { from: 'bot', text: 'Chat cleared! How can I help you today?', id: Date.now() }
+    ]);
+    
+    if (window.innerWidth < 768) {
+      setIsSidebarOpen(false);
+    }
+    
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
+  };
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-gradient-to-br from-emerald-50 to-green-50">
+        <div className="text-center">
+          <ChefHat className="w-12 h-12 mx-auto mb-4 text-emerald-600 animate-pulse" />
+          <p className="text-gray-600">Loading NutriChef...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ QUICK ACTIONS COMPONENT
+  const QuickActions = () => (
+    <div className={`mb-6 p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
+      isDarkMode 
+        ? 'border-emerald-600/30 bg-slate-800/50' 
+        : 'border-emerald-300/50 bg-emerald-50/50'
+    } backdrop-blur-sm`}>
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+        <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+          Quick Actions
+        </h3>
+      </div>
+      
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <button
+          onClick={() => setInput('Generate a meal plan for this week')}
+          className="p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm font-medium hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Calendar className="w-4 h-4 mx-auto mb-1" />
+          Meal Plan
+        </button>
+        
+        <button
+          onClick={() => setInput('Show me breakfast recipes')}
+          className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Coffee className="w-4 h-4 mx-auto mb-1" />
+          Breakfast
+        </button>
+        
+        <button
+          onClick={() => setInput('What should I cook for lunch?')}
+          className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Sun className="w-4 h-4 mx-auto mb-1" />
+          Lunch
+        </button>
+        
+        <button
+          onClick={() => setInput('Suggest dinner recipes')}
+          className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+        >
+          <Moon className="w-4 h-4 mx-auto mb-1" />
+          Dinner
+        </button>
+      </div>
+    </div>
+  );
+
   return (
-    <div className={`h-screen w-full flex overflow-hidden ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gradient-to-br from-emerald-50 via-green-100 to-teal-50 text-gray-800'} font-sans`}>
-      {/* Overlay for mobile sidebar */}
+    <div className={`h-screen w-full flex overflow-hidden transition-all duration-300 ${
+      isDarkMode 
+        ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-gray-100' 
+        : 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 text-gray-800'
+    } font-sans`}>
+      
+      {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
-          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
+          className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-20 transition-opacity duration-300"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -753,335 +535,314 @@ if (recipeTitle) {
       {/* Sidebar */}
       <div 
         id="sidebar"
-        className={`${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transform transition-transform duration-300 fixed md:relative left-0 top-0 h-full w-72 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-900'} text-white z-30 flex flex-col shadow-lg overflow-hidden`}
+        className={`md:translate-x-0 fixed md:relative left-0 top-0 h-full w-80 transform transition-transform duration-300 ease-in-out z-30 ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          isDarkMode 
+            ? 'bg-slate-900/95 border-slate-700/50' 
+            : 'bg-white/95 border-gray-200/50'
+        } backdrop-blur-xl border-r flex flex-col shadow-2xl overflow-hidden`}
       >
-        {/* New Chat Button */}
-        <div className="p-4 border-b border-gray-800 flex items-center">
-          <ChefHat className="w-6 h-6 text-emerald-500 mr-2" />
-          <h2 className="text-lg font-bold">NutriChef</h2>
-          <button onClick={toggleSidebar} className="ml-auto md:hidden">
+        {/* Header */}
+        <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex items-center`}>
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'}`}>
+              <ChefHat className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+            </div>
+            <div>
+              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                NutriChef
+              </h2>
+              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Your AI Recipe Assistant
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={toggleSidebar} 
+            className={`ml-auto md:hidden p-2 rounded-lg transition-all ${
+              isDarkMode ? 'hover:bg-slate-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+            }`}
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
         
+        {/* New Chat Button */}
         <div className="p-4">
           <button 
             onClick={clearChat}
-            className="w-full bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 py-2.5 px-4 rounded-md flex items-center justify-center gap-2 transition text-sm"
+            className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all shadow-lg ${
+              isDarkMode
+                ? 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white'
+                : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white'
+            }`}
           >
-            <PlusCircle className="w-4 h-4" /> New chat
+            <PlusCircle className="w-5 h-5" />
+            Start New Chat
           </button>
-        </div>
-        
-        {/* Previous Chats */}
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="space-y-1">
-            {previousChats.length > 0 ? (
-              <>
-                <h3 className="text-xs font-medium text-gray-400 px-2 my-2 flex items-center">
-                  <Clock className="w-3 h-3 mr-1" /> Previous chats
-                </h3>
-                {previousChats.map(chat => (
-                  <div key={chat.id} className="flex items-center group">
-                    <button 
-                      onClick={() => restorePreviousChat(chat.id)}
-                      className="w-full py-2 px-3 text-sm text-left text-gray-300 hover:bg-gray-700 rounded-md truncate flex-1 flex items-center"
-                    >
-                      <MessageSquare className="w-3 h-3 mr-2 text-gray-500" />
-                      {chat.title}
-                    </button>
-                    <button 
-                      onClick={(e) => deleteChat(chat.id, e)} 
-                      className="p-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </>
-            ) : (
-              <div className="py-5 px-4 text-gray-500 text-sm flex flex-col items-center">
-                <BookOpen className="w-10 h-10 mb-2 opacity-50" />
-                <p className="text-center">Your chat history will appear here</p>
-              </div>
-            )}
-          </div>
         </div>
         
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center">
-              <UserCircle className="w-6 h-6" />
+        <div className={`mt-auto p-4 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'}`}>
+          <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'
+              }`}>
+                <UserCircle className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {userEmail || 'Loading...'}
+                </p>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Premium User
+                </p>
+              </div>
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-sm truncate">{userEmail}</p>
-            </div>
+            
+            <button
+              onClick={handleLogout}
+              className={`w-full py-2 px-3 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                isDarkMode 
+                  ? 'bg-slate-700/50 hover:bg-red-600/20 text-gray-300 hover:text-red-400 border border-slate-600/50 hover:border-red-600/30' 
+                  : 'bg-white hover:bg-red-50 text-gray-700 hover:text-red-600 border border-gray-200 hover:border-red-200'
+              }`}
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full bg-gray-800 hover:bg-gray-700 py-1.5 px-3 rounded-md text-sm flex items-center justify-center gap-1 transition"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Sign out
-          </button>
         </div>
       </div>
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col relative">
         {/* Top Bar */}
-        <div className={`h-14 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-b flex items-center px-4 z-10`}>
+        <div className={`h-16 ${
+          isDarkMode 
+            ? 'bg-slate-900/80 border-slate-700/50' 
+            : 'bg-white/80 border-gray-200/50'
+        } backdrop-blur-xl border-b flex items-center px-6 z-10`}>
           <button 
             id="menu-button"
             onClick={toggleSidebar} 
-            className="md:hidden mr-3"
+            className={`md:hidden mr-4 p-2 rounded-lg transition-all ${
+              isDarkMode ? 'hover:bg-slate-800 text-gray-300' : 'hover:bg-gray-100 text-gray-700'
+            }`}
           >
-            <Menu className={`w-6 h-6 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+            <Menu className="w-5 h-5" />
           </button>
-          <div className="flex items-center">
-            <ChefHat className="w-6 h-6 text-emerald-600 mr-2" />
-            <h1 className={`text-lg font-medium ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>NutriChef</h1>
+          
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'}`}>
+              <ChefHat className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+            </div>
+            <div>
+              <h1 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                NutriChef Assistant
+              </h1>
+              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {isTyping ? 'Cooking up an answer...' : 'Ready to help with recipes'}
+              </p>
+            </div>
           </div>
           
-          {/* Theme toggle */}
-          <div className="ml-auto flex items-center gap-2">
+          {/* Theme Toggle */}
+          <div className="ml-auto flex items-center gap-3">
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-yellow-300' : 'bg-gray-200 text-gray-700'}`}
+              className={`p-3 rounded-xl transition-all ${
+                isDarkMode 
+                  ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' 
+                  : 'bg-slate-700/10 text-slate-700 hover:bg-slate-700/20'
+              }`}
               title={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
             >
-              {isDarkMode ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                </svg>
-              )}
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
         {/* Chat Container */}
         <div className="flex-1 relative flex flex-col overflow-hidden">
-          {/* Messages */}
-          <div className={`flex-1 overflow-y-auto py-4 px-4 md:px-8 z-10 ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="max-w-3xl mx-auto">
-              {/* Add Quick Actions at the top */}
+          {/* Messages Area */}
+          <div className={`flex-1 overflow-y-auto py-6 px-4 md:px-8 ${
+            isDarkMode ? 'bg-slate-900/50' : 'bg-white/50'
+          } backdrop-blur-sm`}>
+            <div className="max-w-4xl mx-auto">
+              {/* Quick Actions - only show on first message */}
+              
               {messages.length === 1 && <QuickActions />}
               
-              <AnimatePresence mode="popLayout">
-                {messages.length > 0 ? (
-                  messages.map((msg, idx) => (
-                    <motion.div
-                      key={`${msg.id || idx}`}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className={`mb-6 flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] flex ${msg.from === 'user' ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
-                        {/* Avatar */}
-                        <div className={`flex-shrink-0 w-8 h-8 rounded-full ${msg.from === 'bot' ? 'bg-emerald-600' : 'bg-blue-600'} flex items-center justify-center text-white mt-1`}>
-                          {msg.from === 'bot' ? 
-                            <ChefHat className="w-5 h-5" /> : 
-                            <UserCircle className="w-5 h-5" />
-                          }
-                        </div>
-                        
-                        {/* Message Content */}
-                        <div className="flex-1">
-                          {editingMessageId === msg.id ? (
-                            <div className="flex flex-col gap-2">
-                              <textarea
-                                value={editedText}
-                                onChange={(e) => setEditedText(e.target.value)}
-                                className={`p-3 rounded-lg border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full min-h-[80px] ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-800'}`}
-                                autoFocus
-                              />
-                              <div className="flex justify-end gap-2">
-                                <button 
-                                  onClick={cancelEdit}
-                                  className={`px-2 py-1 text-xs ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-700'} flex items-center gap-1`}
-                                >
-                                  <X className="w-3 h-3" /> Cancel
-                                </button>
-                                <button 
-                                  onClick={saveEdit}
-                                  className="px-2 py-1 bg-emerald-500 text-white rounded-md text-xs flex items-center gap-1 hover:bg-emerald-600"
-                                >
-                                  <Check className="w-3 h-3" /> Save
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className={`p-3 rounded-lg ${
-                                msg.from === 'bot' 
-                                  ? isDarkMode 
-                                    ? 'bg-gray-700 text-gray-100 rounded-tl-none' 
-                                    : 'bg-gray-100 text-gray-800 rounded-tl-none'
-                                  : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-tr-none'
-                              }`}>
-                                {msg.from === 'bot' ? (
-                                  <div dangerouslySetInnerHTML={{ __html: renderFormattedText(msg.text) }} />
-                                ) : (
-                                  msg.text
-                                )}
-                              </div>
-                              
-                              <div className="mt-1 flex items-center text-xs text-gray-500 gap-2">
-                                {msg.from === 'user' && (
-                                  <button 
-                                    onClick={() => startEditing(msg.id, msg.text)} 
-                                    className={`${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'} transition flex items-center gap-1`}
-                                  >
-                                    <Edit className="w-3 h-3" /> Edit
-                                  </button>
-                                )}
-                                
-                                {msg.from === 'bot' && msg.id && (
-                                  <>
-                                    {showFeedback === msg.id ? (
-                                      <div className="flex space-x-2 items-center">
-                                        <button onClick={() => giveFeedback(msg.id, 'positive')} className="p-1 hover:text-emerald-600 transition">
-                                          <ThumbsUp className="w-3 h-3" />
-                                        </button>
-                                        <button onClick={() => giveFeedback(msg.id, 'negative')} className="p-1 hover:text-red-600 transition">
-                                          <ThumbsDown className="w-3 h-3" />
-                                        </button>
-                                        <button onClick={() => setShowFeedback(null)} className={`text-xs ${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'}`}>
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button 
-                                        onClick={() => setShowFeedback(msg.id)} 
-                                        className={`${isDarkMode ? 'hover:text-white' : 'hover:text-gray-800'} transition`}
-                                      >
-                                        Helpful?
-                                      </button>
-                                    )}
-                                  </>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
+              {messages.map((msg, idx) => (
+                <div
+                  key={`${msg.id || idx}`}
+                  className={`mb-8 flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[85%] md:max-w-[75%] flex ${
+                    msg.from === 'user' ? 'flex-row-reverse' : 'flex-row'
+                  } items-start gap-4`}>
+                    {/* Avatar */}
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${
+                      msg.from === 'bot' 
+                        ? isDarkMode 
+                          ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+                          : 'bg-gradient-to-br from-emerald-400 to-green-500'
+                        : isDarkMode
+                          ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
+                          : 'bg-gradient-to-br from-blue-400 to-cyan-500'
+                    } text-white`}>
+                      {msg.from === 'bot' ? 
+                        <ChefHat className="w-5 h-5" /> : 
+                        <UserCircle className="w-5 h-5" />
+                      }
+                    </div>
+                    
+                    {/* Message Content */}
+                    <div className="flex-1">
+                      <div className={`p-4 rounded-2xl shadow-lg backdrop-blur-sm ${
+                        msg.from === 'bot' 
+                          ? isDarkMode 
+                            ? 'bg-slate-800/80 text-gray-100 rounded-tl-none border border-slate-700/50' 
+                            : 'bg-white/90 text-gray-800 rounded-tl-none border border-gray-200/50'
+                          : isDarkMode
+                            ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-tr-none'
+                            : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-tr-none'
+                      }`}>
+                        {msg.from === 'bot' ? (
+                          <div dangerouslySetInnerHTML={{ __html: renderFormattedText(msg.text) }} />
+                        ) : (
+                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                        )}
                       </div>
-                    </motion.div>
-                  ))
-                ) : (
-                  <div className="flex items-center justify-center h-64">
-                    <div className={`text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      <ChefHat className={`mx-auto w-12 h-12 ${isDarkMode ? 'text-emerald-700' : 'text-emerald-300'} mb-3`} />
-                      <p>Start a new conversation with NutriChef</p>
                     </div>
                   </div>
-                )}
-                
-                {isTyping && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-6 flex justify-start"
-                  >
-                    <div className="max-w-[80%] flex flex-row items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center text-white mt-1">
-                        <ChefHat className="w-5 h-5" />
-                      </div>
-                      
-                      <div className="flex-1">
-                        <div className={`p-3 rounded-lg ${isDarkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600'} rounded-tl-none`}>
-                          <div className="flex space-x-2">
-                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '0ms' }}></div>
-                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '150ms' }}></div>
-                            <div className={`w-2 h-2 ${isDarkMode ? 'bg-gray-500' : 'bg-gray-400'} rounded-full animate-bounce`} style={{ animationDelay: '300ms' }}></div>
-                          </div>
-                        </div>
+                </div>
+              ))}
+              
+              {/* Typing Indicator */}
+              {isTyping && (
+                <div className="mb-8 flex justify-start">
+                  <div className="max-w-[85%] md:max-w-[75%] flex items-start gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${
+                      isDarkMode 
+                        ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+                        : 'bg-gradient-to-br from-emerald-400 to-green-500'
+                    } text-white`}>
+                      <ChefHat className="w-5 h-5" />
+                    </div>
+                    
+                    <div className={`p-4 rounded-2xl rounded-tl-none shadow-lg ${
+                      isDarkMode 
+                        ? 'bg-slate-800/80 border border-slate-700/50' 
+                        : 'bg-white/90 border border-gray-200/50'
+                    } backdrop-blur-sm`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          isDarkMode ? 'bg-emerald-400' : 'bg-emerald-500'
+                        }`} style={{ animationDelay: '0ms' }}></div>
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          isDarkMode ? 'bg-emerald-400' : 'bg-emerald-500'
+                        }`} style={{ animationDelay: '150ms' }}></div>
+                        <div className={`w-2 h-2 rounded-full animate-bounce ${
+                          isDarkMode ? 'bg-emerald-400' : 'bg-emerald-500'
+                        }`} style={{ animationDelay: '300ms' }}></div>
+                        <span className={`ml-2 text-xs ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          NutriChef is thinking...
+                        </span>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
 
-          {/* Input */}
-          <div className={`p-4 border-t ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'} z-10`}>
-            <div className="max-w-3xl mx-auto">
+          {/* Input Area */}
+          <div className={`p-6 ${
+            isDarkMode 
+              ? 'bg-slate-900/80 border-slate-700/50' 
+              : 'bg-white/80 border-gray-200/50'
+          } backdrop-blur-xl border-t`}>
+            <div className="max-w-4xl mx-auto">
               <div className="relative">
                 <input
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                  placeholder={isRecording ? "Listening..." : "Message NutriChef..."}
-                  className={`w-full py-3 pl-4 pr-20 rounded-lg border ${
-                    isRecording 
-                      ? 'border-red-400 bg-red-50' 
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
+                  placeholder={isRecording ? "🎤 Listening..." : "Ask me anything about recipes..."}
+                  className={`w-full py-4 px-6 pr-20 rounded-2xl border-2 transition-all duration-300 text-base ${
+                    isInputFocused
+                      ? isDarkMode 
+                        ? 'border-emerald-500 bg-slate-800 text-white placeholder-gray-400 shadow-lg shadow-emerald-500/20' 
+                        : 'border-emerald-500 bg-white text-gray-900 placeholder-gray-500 shadow-lg shadow-emerald-500/20'
                       : isDarkMode 
-                        ? 'border-gray-600 bg-gray-700 text-white' 
-                        : 'border-gray-300 bg-white text-gray-800'
-                  } focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 shadow-sm transition-all`}
+                        ? 'border-slate-600 bg-slate-800/50 text-white placeholder-gray-400' 
+                        : 'border-gray-300 bg-white text-gray-900 placeholder-gray-500'
+                  } focus:outline-none backdrop-blur-sm`}
                   disabled={isRecording}
                 />
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <button 
                     onClick={toggleVoiceRecording} 
-                    className={`p-2 rounded-md ${
+                    className={`p-2.5 rounded-xl transition-all ${
                       isRecording 
-                        ? 'text-red-600 bg-red-100' 
+                        ? isDarkMode
+                          ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
+                          : 'bg-red-100 text-red-600 hover:bg-red-200'
                         : isDarkMode 
-                          ? 'text-gray-300 hover:text-emerald-400 hover:bg-gray-600' 
-                          : 'text-gray-500 hover:text-emerald-600 hover:bg-gray-100'
-                    } transition`}
+                          ? 'hover:bg-slate-700 text-gray-400 hover:text-emerald-400' 
+                          : 'hover:bg-gray-100 text-gray-500 hover:text-emerald-600'
+                    }`}
                     title={isRecording ? "Stop recording" : "Start voice input"}
                   >
                     {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                   </button>
+                  
                   <button 
                     onClick={handleSend} 
                     disabled={!input.trim() && !isRecording}
-                    className={`p-2 rounded-md ${
-                      isDarkMode ? 'text-emerald-400 hover:bg-gray-600' : 'text-emerald-600 hover:bg-gray-100'
-                    } transition ${(!input.trim() && !isRecording) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`p-2.5 rounded-xl transition-all ${
+                      (!input.trim() && !isRecording)
+                        ? isDarkMode ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 cursor-not-allowed'
+                        : isDarkMode 
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg' 
+                          : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg'
+                    }`}
                   >
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              <div className="flex justify-between items-center mt-2 text-xs">
-                <div className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                  {!speechRecognition && (
-                    <span className="flex items-center text-amber-600">
-                      <AlertCircle className="w-3 h-3 mr-1" /> Voice input not supported in this browser
-                    </span>
-                  )}
+              
+              {/* Input Helper Text */}
+              <div className={`flex justify-between items-center mt-3 text-xs ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                <div className="flex items-center gap-4">
+y                  <span className="flex items-center gap-1">
+                    <Star className="w-3 h-3" />
+                    AI-powered recipe assistant
+                  </span>
                 </div>
-                <div className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>
-                  Press Enter to send, Shift+Enter for new line
-                </div>
+                <span>
+                  Press Enter to send
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Related Recipes Suggestions */}
-      {relatedSuggestions.length > 0 && (
-        <div className="mt-4">
-          <h3 className="font-semibold mb-2">Related Recipes:</h3>
-          <ul className="list-disc list-inside space-y-1">
-            {relatedSuggestions.map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

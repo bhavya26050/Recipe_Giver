@@ -9,6 +9,7 @@ import json
 from dotenv import load_dotenv
 import random
 from model import classify_recipe_dietary, generate_meal_plan, get_meal_type_recipes
+import ast
 
 # Load environment variables from .env file
 load_dotenv()
@@ -97,7 +98,7 @@ Dish name:"""
         return None
 
 def search_recipe_in_csv(dish_name: str) -> Optional[Dict[str, Any]]:
-    """Search for recipe in CSV database using standard CSV module"""
+    """Search for recipe in CSV database with preference for more complete recipes"""
     if not recipe_db:
         print("⚠️ Recipe database not available")
         return None
@@ -106,22 +107,64 @@ def search_recipe_in_csv(dish_name: str) -> Optional[Dict[str, Any]]:
     
     search_term = dish_name.lower().strip()
     
-    # Try exact match first
+    # Collect all matches first
+    all_matches = []
+    
+    # Find exact matches
     for recipe in recipe_db:
         if recipe.get('title', '').lower() == search_term:
-            print(f"✅ Found EXACT match: '{recipe['title']}'")
-            return recipe
+            # Count ingredients to prioritize more complete recipes
+            ingredients_count = 0
+            try:
+                raw_ingredients = recipe.get('ingredients', '')
+                if raw_ingredients:
+                    if raw_ingredients.startswith('['):
+                        ingredients_list = ast.literal_eval(raw_ingredients)
+                        ingredients_count = len(ingredients_list) if isinstance(ingredients_list, list) else 1
+                    else:
+                        ingredients_count = len(raw_ingredients.split(','))
+            except:
+                ingredients_count = 1
+            
+            all_matches.append((recipe, ingredients_count))
     
-    # Try partial match with all keywords
+    # If we have multiple matches, prefer the one with more ingredients
+    if all_matches:
+        # Sort by ingredient count (descending) to get the most complete recipe
+        all_matches.sort(key=lambda x: x[1], reverse=True)
+        best_match = all_matches[0][0]
+        print(f"✅ Found EXACT match: '{best_match['title']}' with {all_matches[0][1]} ingredients")
+        return best_match
+    
+    # Try partial match with all keywords (existing logic)
     keywords = [word for word in search_term.split() if len(word) > 2]
     if len(keywords) >= 2:
+        partial_matches = []
         for recipe in recipe_db:
             title_lower = recipe.get('title', '').lower()
             if all(keyword in title_lower for keyword in keywords):
-                print(f"✅ Found specific match: '{recipe['title']}' for '{dish_name}'")
-                return recipe
+                # Count ingredients for partial matches too
+                ingredients_count = 0
+                try:
+                    raw_ingredients = recipe.get('ingredients', '')
+                    if raw_ingredients:
+                        if raw_ingredients.startswith('['):
+                            ingredients_list = ast.literal_eval(raw_ingredients)
+                            ingredients_count = len(ingredients_list) if isinstance(ingredients_list, list) else 1
+                        else:
+                            ingredients_count = len(raw_ingredients.split(','))
+                except:
+                    ingredients_count = 1
+                
+                partial_matches.append((recipe, ingredients_count))
+        
+        if partial_matches:
+            partial_matches.sort(key=lambda x: x[1], reverse=True)
+            best_partial = partial_matches[0][0]
+            print(f"✅ Found partial match: '{best_partial['title']}' with {partial_matches[0][1]} ingredients")
+            return best_partial
     
-    # Specific dish pattern matching
+    # Rest of your existing search logic...
     if 'paneer' in search_term and 'butter' in search_term and 'masala' in search_term:
         for recipe in recipe_db:
             title_lower = recipe.get('title', '').lower()
@@ -140,69 +183,150 @@ def search_recipe_in_csv(dish_name: str) -> Optional[Dict[str, Any]]:
     return None
 
 def format_csv_recipe(recipe: Dict[str, Any]) -> str:
-    """Format CSV recipe into markdown"""
+    """Format CSV recipe into markdown with complete data"""
     try:
         title = recipe.get('title', 'Recipe')
         
-        # Parse ingredients
+        # Debug: Print raw data
+        print(f"\n🔍 DEBUG: Formatting recipe '{title}'")
+        print(f"Raw ingredients: {recipe.get('ingredients', 'N/A')[:100]}...")
+        print(f"Raw directions: {recipe.get('directions', 'N/A')[:100]}...")
+        
+        # Parse ingredients - handle multiple formats
         ingredients = []
-        if 'ingredients' in recipe and recipe['ingredients']:
-            try:
-                if isinstance(recipe['ingredients'], str):
-                    # Try to parse as JSON first
-                    try:
-                        ingredients = json.loads(recipe['ingredients'].replace("'", '"'))
-                    except:
-                        # If JSON parsing fails, split by common delimiters
-                        ingredients = [ing.strip() for ing in recipe['ingredients'].split(',')]
-                elif isinstance(recipe['ingredients'], list):
-                    ingredients = recipe['ingredients']
-            except:
-                ingredients = [recipe['ingredients']] if recipe['ingredients'] else []
+        raw_ingredients = recipe.get('ingredients', '')
         
-        # Parse directions
+        if raw_ingredients:
+            try:
+                # Remove any BOM or weird characters
+                cleaned_ingredients = raw_ingredients.strip()
+                
+                # Try different parsing methods
+                if cleaned_ingredients.startswith('[') and cleaned_ingredients.endswith(']'):
+                    # It's a JSON-like array
+                    try:
+                        ingredients = ast.literal_eval(cleaned_ingredients)
+                    except:
+                        try:
+                            # Replace single quotes with double quotes for JSON
+                            json_ingredients = cleaned_ingredients.replace("'", '"')
+                            ingredients = json.loads(json_ingredients)
+                        except:
+                            # Last resort: split by commas and clean up
+                            ingredients = [
+                                item.strip(' "\'[]') 
+                                for item in cleaned_ingredients.strip('[]').split('", "')
+                                if item.strip()
+                            ]
+                else:
+                    # Split by common delimiters
+                    ingredients = [ing.strip() for ing in cleaned_ingredients.split(',') if ing.strip()]
+                
+            except Exception as e:
+                print(f"❌ Error parsing ingredients: {e}")
+                ingredients = [str(raw_ingredients)]
+        
+        # Parse directions - handle multiple formats
         directions = []
-        if 'directions' in recipe and recipe['directions']:
-            try:
-                if isinstance(recipe['directions'], str):
-                    # Try to parse as JSON first
-                    try:
-                        directions = json.loads(recipe['directions'].replace("'", '"'))
-                    except:
-                        # If JSON parsing fails, split by common delimiters
-                        directions = [dir.strip() for dir in recipe['directions'].split('.') if dir.strip()]
-                elif isinstance(recipe['directions'], list):
-                    directions = recipe['directions']
-            except:
-                directions = [recipe['directions']] if recipe['directions'] else []
+        raw_directions = recipe.get('directions', '')
         
-        # Clean ingredients and directions
-        clean_ingredients = [ing.strip() for ing in ingredients if ing and ing.strip()]
+        if raw_directions:
+            try:
+                # Remove any BOM or weird characters
+                cleaned_directions = raw_directions.strip()
+                
+                # Try different parsing methods
+                if cleaned_directions.startswith('[') and cleaned_directions.endswith(']'):
+                    # It's a JSON-like array
+                    try:
+                        directions = ast.literal_eval(cleaned_directions)
+                    except:
+                        try:
+                            # Replace single quotes with double quotes for JSON
+                            json_directions = cleaned_directions.replace("'", '"')
+                            directions = json.loads(json_directions)
+                        except:
+                            # Last resort: split by '", "' and clean up
+                            directions = [
+                                item.strip(' "\'[]') 
+                                for item in cleaned_directions.strip('[]').split('", "')
+                                if item.strip()
+                            ]
+                else:
+                    # Split by sentence endings
+                    directions = [dir.strip() for dir in cleaned_directions.split('.') if dir.strip()]
+                
+            except Exception as e:
+                print(f"❌ Error parsing directions: {e}")
+                directions = [str(raw_directions)]
+        
+        # Clean and validate data
+        clean_ingredients = []
+        for ing in ingredients:
+            if ing and str(ing).strip() and str(ing).strip() not in ['', 'None', 'null']:
+                clean_ingredients.append(str(ing).strip())
+        
         clean_directions = []
         for direction in directions:
-            if direction and direction.strip():
-                cleaned = direction.strip()
+            if direction and str(direction).strip() and str(direction).strip() not in ['', 'None', 'null']:
+                cleaned = str(direction).strip()
+                # Ensure proper sentence ending
                 if not cleaned.endswith(('.', '!', '?')):
                     cleaned += '.'
                 clean_directions.append(cleaned)
         
-        # Build formatted recipe
+        # Debug: Print parsed data
+        print(f"✅ Parsed {len(clean_ingredients)} ingredients, {len(clean_directions)} directions")
+        
+        # Build complete formatted recipe
         formatted = f"## {title}\n\n"
         formatted += "*Perfect! I found this recipe in my database for you!* 🎯\n\n"
         
+        # Add all ingredients
         if clean_ingredients:
-            formatted += "### 🥘 Ingredients:\n\n"
+            formatted += "### 🥘 **Complete Ingredients:**\n"
             for ingredient in clean_ingredients:
                 formatted += f"• {ingredient}\n"
             formatted += "\n"
+        else:
+            formatted += "### 🥘 **Ingredients:**\n• Ingredients list not available\n\n"
         
+        # Add all directions
         if clean_directions:
-            formatted += "### 👨‍🍳 Instructions:\n\n"
+            formatted += "### 👨‍🍳 **Complete Instructions:**\n"
             for i, step in enumerate(clean_directions, 1):
                 formatted += f"**{i}.** {step}\n\n"
+        else:
+            formatted += "### 👨‍🍳 **Instructions:**\n**1.** Instructions not available in database.\n\n"
         
-        formatted += "### 💡 Chef's Tips:\n\n"
-        formatted += "• Prep all ingredients before starting\n"
+        # Add dietary classification (keep existing logic)
+        try:
+            ingredients_text = ' '.join(clean_ingredients)
+            dietary_info = classify_recipe_dietary(ingredients_text, title)
+            
+            if dietary_info and dietary_info.get('dietary_tags'):
+                formatted += "### 🏷️ **Dietary Info:**\n"
+                tag_emojis = {
+                    'vegetarian': '🌱',
+                    'vegan': '🌿', 
+                    'gluten_free': '🌾',
+                    'dairy_free': '🥛',
+                    'keto_friendly': '🥑',
+                    'high_protein': '💪',
+                    'low_carb': '📉'
+                }
+                
+                for tag in dietary_info['dietary_tags']:
+                    emoji = tag_emojis.get(tag, '✅')
+                    formatted += f"{emoji} **{tag.replace('_', ' ').upper()}**\n"
+                formatted += "\n"
+        except Exception as e:
+            print(f"⚠️ Could not classify dietary info: {e}")
+        
+        # Add chef's tips
+        formatted += "### 💡 **Chef's Tips:**\n"
+        formatted += "• Read through the entire recipe before starting\n"
+        formatted += "• Prep all ingredients and tools beforehand\n"
         formatted += "• Taste and adjust seasoning as needed\n"
         formatted += "• Don't rush the cooking process for best results\n\n"
         
@@ -212,7 +336,7 @@ def format_csv_recipe(recipe: Dict[str, Any]) -> str:
         
     except Exception as e:
         print(f"❌ Error formatting recipe: {e}")
-        return f"## {recipe.get('title', 'Recipe')}\n\nI found this recipe but had trouble formatting it. Let me generate a fresh one!"
+        return f"## {recipe.get('title', 'Recipe')}\n\nI found this recipe but had trouble formatting it completely. Here's what I have:\n\n**Ingredients:** {recipe.get('ingredients', 'Not available')}\n\n**Directions:** {recipe.get('directions', 'Not available')}"
 
 def generate_recipe_with_gemini(dish_name: str, user_query: str) -> str:
     """Generate recipe using Gemini AI"""
@@ -481,6 +605,56 @@ def health_check():
         'total_recipes': len(recipe_db),
         'api_configured': bool(GEMINI_API_KEY)
     })
+
+def debug_recipe_data(recipe_title: str):
+    """Debug function to see raw recipe data"""
+    recipe = search_recipe_in_csv(recipe_title)
+    if recipe:
+        print(f"\n🔍 DEBUG: Raw recipe data for '{recipe_title}':")
+        print(f"Title: {recipe.get('title', 'N/A')}")
+        print(f"Ingredients type: {type(recipe.get('ingredients'))}")
+        print(f"Ingredients raw: {recipe.get('ingredients', 'N/A')[:200]}...")
+        print(f"Directions type: {type(recipe.get('directions'))}")
+        print(f"Directions raw: {recipe.get('directions', 'N/A')[:200]}...")
+        return recipe
+    else:
+        print(f"❌ Recipe '{recipe_title}' not found in database")
+        return None
+
+# Add this to your search endpoint for testing
+@app.route('/api/debug-recipe', methods=['POST'])
+def debug_recipe():
+    """Debug endpoint to check raw recipe data"""
+    try:
+        data = request.get_json()
+        dish_name = data.get('dish_name', '').strip()
+        
+        recipe = debug_recipe_data(dish_name)
+        
+        return jsonify({
+            'found': recipe is not None,
+            'raw_data': recipe if recipe else None
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Add this debug endpoint to your chatbot.py
+@app.route('/api/debug-rum-cake', methods=['GET'])
+def debug_rum_cake():
+    """Debug Rum Cake specifically"""
+    recipe = search_recipe_in_csv("rum cake")
+    if recipe:
+        return jsonify({
+            'found': True,
+            'title': recipe.get('title'),
+            'raw_ingredients': recipe.get('ingredients'),
+            'raw_directions': recipe.get('directions'),
+            'ingredients_type': str(type(recipe.get('ingredients'))),
+            'directions_type': str(type(recipe.get('directions')))
+        })
+    else:
+        return jsonify({'found': False})
 
 if __name__ == '__main__':
     print("🚀 Starting NutriChef Backend...")
