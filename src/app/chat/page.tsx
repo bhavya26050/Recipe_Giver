@@ -3,12 +3,12 @@
 import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/firebase/firebaseConfig';
-import { saveUserHistory } from '@/firebase/history';
+import { saveConversation } from '@/firebase/history'; // ✅ Add this import
 import { useRouter } from 'next/navigation';
 import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
          PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare, 
          Sun, Moon, Star, Heart, Coffee, Search, Settings, Sparkles, Calendar } from 'lucide-react';
-import { collection, getDocs, query, orderBy , deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebase/firebaseConfig";
 
 // Global declaration for speech recognition
@@ -44,6 +44,7 @@ export default function ChatPage() {
   const [ingredientOffset, setIngredientOffset] = useState(0);
   const [relatedSuggestions, setRelatedSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -124,7 +125,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  // ✅ FIREBASE AUTH
+  // ✅ FIREBASE AUTH & HISTORY LOADING
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -133,19 +134,24 @@ export default function ChatPage() {
         setUserEmail(user.email || '');
         setIsLoading(false);
 
+        // Load conversation history
         try {
-          const historyRef = collection(db, 'users', user.uid, 'history');
-          const q = query(historyRef, orderBy('timestamp', 'desc'));
+          const conversationsRef = collection(db, 'users', user.uid, 'conversations');
+          const q = query(conversationsRef, orderBy('lastUpdated', 'desc'));
           const querySnapshot = await getDocs(q);
 
-          const chats = querySnapshot.docs.map((doc, idx) => ({
+          const conversations = querySnapshot.docs.map((doc) => ({
             id: doc.id,
-            title: doc.data().title || `Chat ${idx + 1}`,
-            messages: doc.data().messages || [],
+            title: doc.data().title || 'Untitled Conversation',
+            lastMessage: doc.data().lastMessage || '',
+            messageCount: doc.data().messageCount || 0,
+            lastUpdated: doc.data().lastUpdated,
+            messages: doc.data().messages || []
           }));
-          setPreviousChats(chats);
+
+          setPreviousChats(conversations);
         } catch (error) {
-          console.error('Error loading chat history:', error);
+          console.error('Error loading conversation history:', error);
         }
       }
     });
@@ -160,25 +166,6 @@ export default function ChatPage() {
   }, [messages, isTyping]);
 
   // ✅ HELPER FUNCTIONS
-  function cleanRecipeResponse(response: string): string {
-    const lines = response.split('\n');
-    const cleanedLines = [];
-    let seenRelatedSection = false;
-    
-    for (const line of lines) {
-      if (line.includes('You might also enjoy') || line.includes('🍽️')) {
-        if (!seenRelatedSection) {
-          cleanedLines.push(line);
-          seenRelatedSection = true;
-        }
-      } else {
-        cleanedLines.push(line);
-      }
-    }
-    
-    return cleanedLines.join('\n');
-  }
-
   function renderFormattedText(text: string) {
     const isDark = isDarkMode;
     
@@ -202,250 +189,11 @@ export default function ChatPage() {
     return formatted;
   }
 
-  // ✅ RECIPE FUNCTIONS
-  async function getIngredientRecipes(ingredient: string, more = false) {
-    let newOffset = ingredientOffset;
-    if (!more || lastIngredient !== ingredient) {
-      newOffset = 0;
-      setLastIngredient(ingredient);
-    } else {
-      newOffset += 10;
-    }
-    setIngredientOffset(newOffset);
-
-    setIsTyping(true);
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: `recipes from ${ingredient}`, offset: newOffset }),
-      });
-      setIsTyping(false);
-
-      if (!response.ok) {
-        setMessages(prev => [
-          ...prev,
-          { 
-            from: 'bot', 
-            text: `Oops! 😅 I'm having a little trouble right now. Try again! 🍳`, 
-            id: Date.now() 
-          }
-        ]);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (!data.response || data.response.trim() === "" || data.response.toLowerCase().includes("no more recipes")) {
-        setMessages(prev => [
-          ...prev,
-          { from: 'bot', text: "No more recipes found for this ingredient.", id: Date.now() }
-        ]);
-        return;
-      }
-
-      // After you get the main recipe response (e.g., for "Paneer Butter Masala")
-      const mainRecipeText = data.response; // your main recipe string
-      const dishName = extractDishName(mainRecipeText); // implement this to get the dish name
-
-      // Fetch related recipes
-      const relatedRes = await fetch('/api/related-recipes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dish_name: dishName }),
-      });
-      const relatedData = await relatedRes.json();
-
-      let relatedSection = '';
-      if (relatedData.success && relatedData.suggestions.length > 0) {
-        relatedSection = `\n\n🍽️ **You might also enjoy:**\n` +
-          relatedData.suggestions.map((title, i) => `- ${title}`).join('\n');
-      }
-
-      // Combine and display
-      const fullRecipeText = mainRecipeText + relatedSection;
-
-      setMessages(prev => [
-        ...prev,
-        { from: 'bot', text: fullRecipeText, id: Date.now() }
-      ]);
-    } catch (error) {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        { 
-          from: 'bot', 
-          text: 'Something went wrong on my end! 😔 But I\'m still here to help you create something delicious. What would you like to cook today? 🍳✨', 
-          id: Date.now() 
-        }
-      ]);
-      console.error('Error calling chat API:', error);
-    }
-  }
-
-  const getMealTypeRecipes = async (mealType: string, emoji: string) => {
-    setIsTyping(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/recipes-by-meal-type', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meal_type: mealType, limit: 8 })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success && data.recipes.length > 0) {
-        let recipeText = `## ${emoji} ${mealType.charAt(0).toUpperCase() + mealType.slice(1)} Recipe Ideas\n\n`;
-        recipeText += `*Here are some delicious ${mealType} options for you!* 🍳\n\n`;
-        
-        data.recipes.forEach((recipe: any, index: number) => {
-          recipeText += `**${index + 1}. ${recipe.title}**\n`;
-          
-          if (recipe.dietary_info && recipe.dietary_info.dietary_tags.length > 0) {
-            const tags = recipe.dietary_info.dietary_tags.slice(0, 3).join(', ');
-            recipeText += `   *${tags}*\n`;
-          }
-          recipeText += '\n';
-        });
-        
-        recipeText += `**Want the full recipe for any of these?** Just ask me! 😊`;
-        
-        setMessages(prev => [...prev, { from: 'bot', text: recipeText, id: Date.now() }]);
-      }
-    } catch (error) {
-      console.error(`Error getting ${mealType} recipes:`, error);
-    }
-    setIsTyping(false);
+  // ✅ MISSING FUNCTIONS - ADD THESE
+  const toggleSidebar = () => {
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
-  const generateMealPlan = async () => {
-    setIsTyping(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/generate-meal-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ days: 7, dietary_preferences: [] })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        let mealPlanText = "## 📅 Your 7-Day Meal Plan\n\n*Here's a personalized meal plan just for you!* ✨\n\n";
-        
-        Object.entries(data.meal_plan.meal_plan).forEach(([day, meals]: [string, any]) => {
-          mealPlanText += `### ${day}\n`;
-          mealPlanText += `🌅 **Breakfast:** ${meals.breakfast?.title || 'Free choice'}\n`;
-          mealPlanText += `🍽️ **Lunch:** ${meals.lunch?.title || 'Free choice'}\n`;
-          mealPlanText += `🌙 **Dinner:** ${meals.dinner?.title || 'Free choice'}\n`;
-          mealPlanText += `🍿 **Snack:** ${meals.snack?.title || 'Free choice'}\n\n`;
-        });
-        
-        mealPlanText += "**Want a specific recipe from this plan?** Just ask me about any dish! 😊";
-        
-        setMessages(prev => [...prev, { from: 'bot', text: mealPlanText, id: Date.now() }]);
-      }
-    } catch (error) {
-      console.error('Error generating meal plan:', error);
-    }
-    setIsTyping(false);
-  };
-
-  const getBreakfastRecipes = () => getMealTypeRecipes('breakfast', '🌅');
-  const getLunchRecipes = () => getMealTypeRecipes('lunch', '🍽️');
-  const getDinnerRecipes = () => getMealTypeRecipes('dinner', '🌙');
-
-  // ✅ MAIN FUNCTIONS
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    
-    const messageId = Date.now();
-    const userMessage = input;
-
-    setMessages(prev => [...prev, { from: 'user', text: userMessage, id: messageId }]);
-    setInput('');
-    setIsTyping(true);
-    
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: userMessage,
-          history: messages.slice(-5) // Last 5 messages for context
-        }),
-      });
-
-      setIsTyping(false);
-      
-      if (!response.ok) {
-        setMessages(prev => [
-          ...prev,
-          { 
-            from: 'bot', 
-            text: `Sorry, I'm having trouble right now. Please try again! 🍳`, 
-            id: Date.now() 
-          }
-        ]);
-        return;
-      }
-      
-      const data = await response.json();
-      let recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
-
-      // --- SUGGEST RELATED RECIPES ---
-      // Try to extract the dish name from the recipe title (first line or use input)
-      let dishName = '';
-      const match = recipeResponse.match(/^([^\n]+)\n/); // first line as title
-      if (match && match[1].length < 60) {
-        dishName = match[1].replace(/[^a-zA-Z0-9 ]/g, '').trim();
-      } else {
-        dishName = userMessage.replace(/[^a-zA-Z0-9 ]/g, '').trim();
-      }
-
-      // Fetch related recipes
-      let relatedSection = '';
-      try {
-        const relatedRes = await fetch('/api/related-recipes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ dish_name: dishName }),
-        });
-        const relatedData = await relatedRes.json();
-        if (relatedData.success && relatedData.suggestions.length > 0) {
-          relatedSection = `\n\n🍽️ **You might also enjoy:**\n` +
-            relatedData.suggestions.map((title: string) => `- ${title}`).join('\n');
-        }
-      } catch (err) {
-        // Ignore related recipe errors, just show main recipe
-      }
-
-      recipeResponse += relatedSection;
-
-      setMessages(prev => [
-        ...prev,
-        { from: 'bot', text: recipeResponse, id: Date.now() }
-      ]);
-    } catch (error) {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        { 
-          from: 'bot', 
-          text: 'Something went wrong! Please try again. 🍳', 
-          id: Date.now() 
-        }
-      ]);
-      console.error('Error calling chat API:', error);
-    }
-  };
-
-  // ✅ OTHER FUNCTIONS
   const toggleVoiceRecording = () => {
     if (!speechRecognition) {
       alert('Your browser does not support speech recognition');
@@ -469,39 +217,159 @@ export default function ChatPage() {
       console.error('Error signing out:', error);
     }
   };
-  
-  const clearChat = async () => {
-    if (messages.length > 1) {
-      const firstUserMsg = messages.find(m => m.from === 'user');
-      const title = firstUserMsg
-        ? firstUserMsg.text.substring(0, 25)
-        : `Chat ${previousChats.length + 1}`;
 
-      // Save to Firestore
-      const user = auth.currentUser;
-      if (user) {
-        await saveUserHistory(user.uid, title, messages);
-      }
+  // ✅ QUICK ACTION HANDLERS - Fixed to send proper queries
+  const handleQuickAction = async (message: string) => {
+    setInput(message);
+    // Auto-send the message
+    setTimeout(() => {
+      handleSend(message);
+    }, 100);
+  };
 
-      // Save to UI
-      setPreviousChats(prev => [
-        {
-          id: Date.now().toString(),
-          title,
-          messages: [...messages],
-        },
-        ...prev,
-      ]);
+  // ✅ MAIN SEND FUNCTION - Fixed
+  const handleSend = async (quickMessage?: string) => {
+    const messageToSend = quickMessage || input.trim();
+    if (!messageToSend) return;
+    
+    const messageId = Date.now();
+
+    setMessages(prev => [...prev, { from: 'user', text: messageToSend, id: messageId }]);
+    setInput('');
+    setIsTyping(true);
+    
+    if (inputRef.current) {
+      inputRef.current.focus();
     }
 
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          message: messageToSend,
+          history: messages.slice(-5)
+        }),
+      });
+
+      setIsTyping(false);
+      
+      if (!response.ok) {
+        setMessages(prev => [
+          ...prev,
+          { 
+            from: 'bot', 
+            text: `Sorry, I'm having trouble right now. Please try again! 🍳`, 
+            id: Date.now() 
+          }
+        ]);
+        return;
+      }
+      
+      const data = await response.json();
+      const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
+
+      const updatedMessages = [...messages, 
+        { from: 'user', text: messageToSend, id: messageId },
+        { from: 'bot', text: recipeResponse, id: Date.now() }
+      ];
+
+      setMessages(updatedMessages);
+      
+      // ✅ Fix: Save entire conversation, not individual messages
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const conversationId = await saveConversation(
+            user.uid, 
+            updatedMessages,
+            currentConversationId // Pass current conversation ID to update existing one
+          );
+          
+          // Set the conversation ID if this is a new conversation
+          if (!currentConversationId && conversationId) {
+            setCurrentConversationId(conversationId);
+          }
+          
+          // Reload conversation history
+          await loadConversationHistory(user.uid);
+        } catch (error) {
+          console.error('Error saving conversation:', error);
+        }
+      }
+      
+    } catch (error) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        { 
+          from: 'bot', 
+          text: 'Something went wrong! Please try again. 🍳', 
+          id: Date.now() 
+        }
+      ]);
+      console.error('Error calling chat API:', error);
+    }
+  };
+
+  // Update load conversation history function
+  const loadConversationHistory = async (userId: string) => {
+    try {
+      const conversationsRef = collection(db, 'users', userId, 'conversations');
+      const q = query(conversationsRef, orderBy('lastUpdated', 'desc'));
+      const querySnapshot = await getDocs(q);
+
+      const conversations = querySnapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title || 'Untitled Conversation',
+          lastMessage: data.lastMessage || '',
+          messageCount: data.messageCount || 0,
+          lastUpdated: data.lastUpdated,
+          messages: data.messages || []
+        };
+      });
+
+      setPreviousChats(conversations);
+      console.log("✅ Loaded conversation history:", conversations.length, "conversations");
+    } catch (error) {
+      console.error('Error loading conversation history:', error);
+    }
+  };
+
+  // Update load conversation into chat
+  const loadConversationIntoChat = (conversation: any) => {
+    if (!conversation.messages || conversation.messages.length === 0) {
+      console.warn("Invalid conversation data:", conversation);
+      return;
+    }
+    
+    // Convert conversation messages back to chat format
+    const chatMessages = conversation.messages.map((msg: any, index: number) => ({
+      from: msg.from,
+      text: msg.text,
+      id: Date.now() + index
+    }));
+    
+    setMessages(chatMessages);
+    setCurrentConversationId(conversation.id);
+    setIsSidebarOpen(false);
+  };
+
+  // Update clear chat to start new conversation
+  const clearChat = () => {
     setMessages([
       { from: 'bot', text: 'Chat cleared! How can I help you today?', id: Date.now() }
     ]);
-
+    setCurrentConversationId(null); // Start new conversation
+    
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
-
+    
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
@@ -509,24 +377,18 @@ export default function ChatPage() {
     }, 100);
   };
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
+  // Update delete conversation function
+  const handleDeleteConversation = async (conversationId: string) => {
+    setPreviousChats(prev => prev.filter(conv => conv.id !== conversationId));
 
-  // Add this function inside your ChatPage component:
-  const handleDeleteHistory = async (chatId: string) => {
-    // Remove from UI
-    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
-
-    // Remove from Firestore
     try {
       const user = auth.currentUser;
       if (user) {
-        const docRef = doc(db, 'users', user.uid, 'history', chatId);
+        const docRef = doc(db, 'users', user.uid, 'conversations', conversationId);
         await deleteDoc(docRef);
       }
     } catch (error) {
-      console.error('Error deleting chat history:', error);
+      console.error('Error deleting conversation:', error);
     }
   };
 
@@ -542,7 +404,7 @@ export default function ChatPage() {
     );
   }
 
-  // ✅ QUICK ACTIONS COMPONENT
+  // ✅ FIXED QUICK ACTIONS COMPONENT
   const QuickActions = () => (
     <div className={`mb-6 p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
       isDarkMode 
@@ -557,28 +419,28 @@ export default function ChatPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <button
-          onClick={() => setInput('Generate a meal plan for this week')}
+          onClick={() => handleQuickAction('Generate a healthy weekly meal plan for 2 people')}
           className="p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm font-medium hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Calendar className="w-4 h-4 mx-auto mb-1" />
           Meal Plan
         </button>
         <button
-          onClick={() => setInput('Show me breakfast recipes')}
+          onClick={() => handleQuickAction('Show me healthy and quick breakfast recipes for busy mornings')}
           className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Coffee className="w-4 h-4 mx-auto mb-1" />
           Breakfast
         </button>
         <button
-          onClick={() => setInput('What should I cook for lunch?')}
+          onClick={() => handleQuickAction('What are some nutritious and easy lunch ideas for work?')}
           className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Sun className="w-4 h-4 mx-auto mb-1" />
           Lunch
         </button>
         <button
-          onClick={() => setInput('Suggest dinner recipes')}
+          onClick={() => handleQuickAction('Suggest some delicious dinner recipes for tonight with family')}
           className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
         >
           <Moon className="w-4 h-4 mx-auto mb-1" />
@@ -588,13 +450,13 @@ export default function ChatPage() {
     </div>
   );
 
-  // ✅ SIDEBAR COMPONENT
   return (
     <div className={`h-screen w-full flex overflow-hidden transition-all duration-300 ${
       isDarkMode 
         ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-gray-100' 
         : 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 text-gray-800'
     } font-sans`}>
+      
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
@@ -603,7 +465,7 @@ export default function ChatPage() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* ✅ FIXED SIDEBAR */}
       <div 
         id="sidebar"
         className={`md:translate-x-0 fixed md:relative left-0 top-0 h-full w-80 transform transition-transform duration-300 ease-in-out z-30 ${
@@ -612,37 +474,38 @@ export default function ChatPage() {
           isDarkMode 
             ? 'bg-slate-900/95 border-slate-700/50' 
             : 'bg-white/95 border-gray-200/50'
-        } backdrop-blur-xl border-r flex flex-col shadow-2xl overflow-hidden`}
+        } backdrop-blur-xl border-r flex flex-col shadow-2xl`}
       >
         {/* Header */}
-        
-        <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex items-center`}>
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'}`}>
-              <ChefHat className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+        <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex-shrink-0`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'}`}>
+                <ChefHat className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+              </div>
+              <div>
+                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  NutriChef
+                </h2>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Your AI Recipe Assistant
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                NutriChef
-              </h2>
-              <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                Your AI Recipe Assistant
-              </p>
-            </div>
+            
+            <button 
+              onClick={toggleSidebar} 
+              className={`md:hidden p-2 rounded-lg transition-all ${
+                isDarkMode ? 'hover:bg-slate-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-          
-          <button 
-            onClick={toggleSidebar} 
-            className={`ml-auto md:hidden p-2 rounded-lg transition-all ${
-              isDarkMode ? 'hover:bg-slate-800 text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-            }`}
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
         
         {/* New Chat Button */}
-        <div className="p-4">
+        <div className="p-4 flex-shrink-0">
           <button 
             onClick={clearChat}
             className={`w-full py-3 px-4 rounded-xl font-medium flex items-center justify-center gap-3 transition-all shadow-lg ${
@@ -656,53 +519,85 @@ export default function ChatPage() {
           </button>
         </div>
 
-        {/* Chat History Section */}
-        <div className="px-4 pb-4 flex-1 overflow-y-auto">
-          <h3 className={`text-xs font-semibold mb-2 mt-2 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
-            Chat History
-          </h3>
-          {previousChats.length === 0 && (
-            <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No history yet.</div>
-          )}
-          <ul>
-            {previousChats.map((chat) => (
-              <li
-                key={chat.id}
-                className={`mb-2 p-2 rounded-lg cursor-pointer flex items-center justify-between transition-all ${
-                  isDarkMode
-                    ? 'hover:bg-slate-800 text-gray-200'
-                    : 'hover:bg-emerald-50 text-gray-700'
-                }`}
-              >
-                <span
-                  className="flex-1 flex items-center min-w-0"
-                  onClick={() => {
-                    setMessages(chat.messages);
-                    setIsSidebarOpen(false);
-                  }}
-                  title={chat.title}
-                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                >
-                  <BookOpen className="inline w-4 h-4 mr-2 flex-shrink-0" />
-                  {chat.title}
-                </span>
-                <button
-                  className={`ml-2 p-1 rounded hover:bg-red-100 ${isDarkMode ? 'hover:bg-red-900' : ''}`}
-                  title="Delete chat"
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleDeleteHistory(chat.id);
-                  }}
-                >
-                  <Trash2 className={`w-4 h-4 ${isDarkMode ? 'text-red-400' : 'text-red-600'}`} />
-                </button>
-              </li>
-            ))}
-          </ul>
+        {/* ✅ FIXED CHAT HISTORY SECTION */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="px-4 py-2 flex-shrink-0">
+            <h3 className={`text-xs font-semibold uppercase tracking-wide ${
+              isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+            }`}>
+              Chat History
+            </h3>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto px-4 pb-4">
+            {previousChats.length === 0 ? (
+              <div className={`text-sm text-center py-8 ${
+                isDarkMode ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                No chat history yet
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {previousChats.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`group p-3 rounded-lg cursor-pointer transition-all ${
+                      isDarkMode
+                        ? 'hover:bg-slate-800 border border-slate-700/50 hover:border-emerald-600/30'
+                        : 'hover:bg-emerald-50 border border-gray-200/50 hover:border-emerald-300/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div 
+                        className="flex-1 min-w-0"
+                        onClick={() => loadConversationIntoChat(conversation)}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <MessageSquare className={`w-3 h-3 flex-shrink-0 ${
+                            isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+                          }`} />
+                          <p className={`text-sm font-medium truncate ${
+                            isDarkMode ? 'text-white' : 'text-gray-900'
+                          }`}>
+                            {conversation.title}
+                          </p>
+                        </div>
+                        <p className={`text-xs line-clamp-2 ${
+                          isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                        }`}>
+                          {conversation.lastMessage}
+                        </p>
+                        <div className={`text-xs mt-1 ${
+                          isDarkMode ? 'text-gray-500' : 'text-gray-400'
+                        }`}>
+                          {conversation.messageCount} messages
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConversation(conversation.id);
+                        }}
+                        className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all ${
+                          isDarkMode 
+                            ? 'hover:bg-red-900/30 text-red-400' 
+                            : 'hover:bg-red-100 text-red-600'
+                        }`}
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         
-        {/* User Profile */}
-        <div className={`mt-auto p-4 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'}`}>
+        {/* ✅ FIXED USER PROFILE */}
+        <div className={`p-4 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex-shrink-0`}>
           <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-3 mb-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
@@ -736,13 +631,13 @@ export default function ChatPage() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative min-w-0">
         {/* Top Bar */}
         <div className={`h-16 ${
           isDarkMode 
             ? 'bg-slate-900/80 border-slate-700/50' 
             : 'bg-white/80 border-gray-200/50'
-        } backdrop-blur-xl border-b flex items-center px-6 z-10`}>
+        } backdrop-blur-xl border-b flex items-center px-6 z-10 flex-shrink-0`}>
           <button 
             id="menu-button"
             onClick={toggleSidebar} 
@@ -784,7 +679,7 @@ export default function ChatPage() {
         </div>
 
         {/* Chat Container */}
-        <div className="flex-1 relative flex flex-col overflow-hidden">
+        <div className="flex-1 relative flex flex-col overflow-hidden min-h-0">
           {/* Messages Area */}
           <div className={`flex-1 overflow-y-auto py-6 px-4 md:px-8 ${
             isDarkMode ? 'bg-slate-900/50' : 'bg-white/50'
@@ -819,7 +714,7 @@ export default function ChatPage() {
                     </div>
                     
                     {/* Message Content */}
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       <div className={`p-4 rounded-2xl shadow-lg backdrop-blur-sm ${
                         msg.from === 'bot' 
                           ? isDarkMode 
@@ -832,7 +727,7 @@ export default function ChatPage() {
                         {msg.from === 'bot' ? (
                           <div dangerouslySetInnerHTML={{ __html: renderFormattedText(msg.text) }} />
                         ) : (
-                          <p className="whitespace-pre-wrap">{msg.text}</p>
+                          <p className="whitespace-pre-wrap break-words">{msg.text}</p>
                         )}
                       </div>
                     </div>
@@ -881,14 +776,13 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Input Area */}
+          {/* ✅ FIXED INPUT AREA */}
           <div className={`p-6 ${
             isDarkMode 
               ? 'bg-slate-900/80 border-slate-700/50' 
               : 'bg-white/80 border-gray-200/50'
-          } backdrop-blur-xl border-t`}>
+          } backdrop-blur-xl border-t flex-shrink-0`}>
             <div className="max-w-4xl mx-auto">
-              {/* Only one .relative wrapper here */}
               <div className="relative">
                 <input
                   ref={inputRef}
@@ -910,7 +804,7 @@ export default function ChatPage() {
                   disabled={isRecording}
                 />
 
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center ga  p-2 pb-9">
                   <button 
                     onClick={toggleVoiceRecording} 
                     className={`p-2.5 rounded-xl transition-all ${
@@ -926,8 +820,9 @@ export default function ChatPage() {
                   >
                     {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                   </button>
+                  
                   <button 
-                    onClick={handleSend} 
+                    onClick={() => handleSend()} 
                     disabled={!input.trim() && !isRecording}
                     className={`p-2.5 rounded-xl transition-all ${
                       (!input.trim() && !isRecording)
@@ -941,7 +836,7 @@ export default function ChatPage() {
                   </button>
                 </div>
 
-                {/* Helper text below input, single row */}
+                {/* Helper text */}
                 <div className={`flex justify-between items-center mt-3 text-xs ${
                   isDarkMode ? 'text-gray-400' : 'text-gray-500'
                 }`}>

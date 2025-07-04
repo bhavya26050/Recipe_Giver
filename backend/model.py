@@ -4,6 +4,22 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 from typing import Dict, List, Tuple
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+import random
+
+load_dotenv()
+
+# Configure Gemini API
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    print("✅ Gemini AI model configured successfully")
+else:
+    model = None
+    print("❌ GEMINI_API_KEY not found in environment variables")
 
 # Load dataset from the same directory
 base_dir = os.path.dirname(__file__)
@@ -208,7 +224,6 @@ class MealPlanner:
         if not recipes:
             return {'title': 'No suitable recipe found', 'ingredients': '', 'meal_type': 'unknown'}
         
-        import random
         return random.choice(recipes)
     
     def get_recipes_by_meal_type(self, meal_type: str, limit: int = 10) -> List[Dict]:
@@ -232,15 +247,6 @@ class MealPlanner:
 # Initialize meal planner
 meal_planner = MealPlanner(df)
 
-def generate_meal_plan(days: int = 7, dietary_preferences: List[str] = None) -> Dict:
-    """Generate meal plan for specified number of days"""
-    return meal_planner.generate_weekly_meal_plan(dietary_preferences)
-
-def get_meal_type_recipes(meal_type: str, limit: int = 10) -> List[Dict]:
-    """Get recipes by meal type"""
-    return meal_planner.get_recipes_by_meal_type(meal_type, limit)
-
-# Additional functionality for related recipe suggestions
 def suggest_related_recipes(recipes_df, dish_name: str):
     """Suggest related recipes based on dish name"""
     related = recipes_df[recipes_df['title'].str.contains(dish_name.split()[-1], case=False, na=False)]
@@ -256,5 +262,267 @@ def suggest_related_recipes(recipes_df, dish_name: str):
     
     return main_recipe_text
 
-# Example usage
-# print(suggest_related_recipes(df, "Spaghetti Bolognese"))
+# AI integration functions
+def classify_recipe_dietary(ingredients_text: str, recipe_title: str = "") -> dict:
+    """Classify recipe for dietary restrictions using AI"""
+    if not model:
+        return {
+            'dietary_tags': ['general'], 
+            'allergens': [], 
+            'is_healthy': True, 
+            'difficulty': 'medium'
+        }
+    
+    prompt = f"""Analyze this recipe and identify dietary tags.
+
+Recipe: {recipe_title}
+Ingredients: {ingredients_text}
+
+Return ONLY a JSON object with this exact format:
+{{
+    "dietary_tags": ["vegetarian", "gluten_free", "dairy_free"],
+    "allergens": ["nuts", "dairy", "gluten"],
+    "is_healthy": true,
+    "difficulty": "easy"
+}}
+
+Available tags: vegetarian, vegan, gluten_free, dairy_free, keto_friendly, high_protein, low_carb, paleo, nut_free
+Allergens: nuts, dairy, gluten, eggs, soy, shellfish, fish
+Difficulty: easy, medium, hard"""
+
+    try:
+        response = model.generate_content(prompt)
+        import json
+        return json.loads(response.text.strip())
+    except Exception as e:
+        print(f"❌ Error classifying dietary info: {e}")
+        return {
+            'dietary_tags': ['general'], 
+            'allergens': [], 
+            'is_healthy': True, 
+            'difficulty': 'medium'
+        }
+
+def generate_meal_plan(days: int = 7, dietary_preferences: list = [], cuisine_preferences: list = [], cooking_time_preference: str = "any") -> str:
+    """Generate a personalized meal plan using AI"""
+    if not model:
+        print("❌ AI model not available for meal plan generation")
+        return """## 📅 Your 7-Day Meal Plan (Fallback)
+
+### Day 1 (Monday)
+**🌅 Breakfast:** Avocado Toast with Scrambled Eggs
+**🌞 Lunch:** Quinoa Salad with Grilled Chicken  
+**🌙 Dinner:** Baked Salmon with Roasted Vegetables
+
+### Day 2 (Tuesday)
+**🌅 Breakfast:** Greek Yogurt with Berries and Granola
+**🌞 Lunch:** Turkey and Hummus Wrap
+**🌙 Dinner:** Spaghetti with Marinara Sauce
+
+### Day 3 (Wednesday)
+**🌅 Breakfast:** Oatmeal with Banana and Nuts
+**🌞 Lunch:** Caesar Salad with Grilled Chicken
+**🌙 Dinner:** Stir-fried Vegetables with Tofu
+
+### Day 4 (Thursday)
+**🌅 Breakfast:** Smoothie Bowl with Mixed Fruits
+**🌞 Lunch:** Lentil Soup with Crusty Bread
+**🌙 Dinner:** Grilled Chicken with Sweet Potato
+
+### Day 5 (Friday)
+**🌅 Breakfast:** Pancakes with Fresh Berries
+**🌞 Lunch:** Quinoa Buddha Bowl
+**🌙 Dinner:** Fish Tacos with Avocado
+
+### Day 6 (Saturday)
+**🌅 Breakfast:** French Toast with Maple Syrup
+**🌞 Lunch:** Caprese Salad with Baguette
+**🌙 Dinner:** BBQ Chicken with Corn on the Cob
+
+### Day 7 (Sunday)
+**🌅 Breakfast:** Breakfast Burrito with Eggs and Beans
+**🌞 Lunch:** Vegetable Soup with Grilled Cheese
+**🌙 Dinner:** Sunday Roast with Yorkshire Pudding
+
+### 🛒 Shopping List
+**Proteins:** Eggs, chicken, salmon, turkey, tofu, fish
+**Vegetables:** Avocado, mixed greens, tomatoes, bell peppers
+**Grains:** Quinoa, bread, pasta, oats
+**Dairy:** Greek yogurt, cheese, milk"""
+    
+    # Build dietary restrictions string
+    dietary_str = ""
+    if dietary_preferences:
+        dietary_str = f"Dietary restrictions: {', '.join(dietary_preferences)}. "
+    
+    # Build cuisine preferences string  
+    cuisine_str = ""
+    if cuisine_preferences:
+        cuisine_str = f"Preferred cuisines: {', '.join(cuisine_preferences)}. "
+    
+    # Build cooking time preference
+    time_str = ""
+    if cooking_time_preference and cooking_time_preference != "any":
+        time_str = f"Prefer {cooking_time_preference} cooking time recipes. "
+    
+    prompt = f"""Create a detailed {days}-day meal plan with breakfast, lunch, and dinner for each day.
+
+Requirements:
+- {dietary_str}
+- {cuisine_str}
+- {time_str}
+- Include variety in ingredients and cooking methods
+- Balance nutrition across the week
+- Make it practical for home cooking
+- Include prep tips
+
+Format as markdown with:
+## 📅 Your {days}-Day Personalized Meal Plan
+
+### Day 1 (Monday)
+**🌅 Breakfast:** [Dish Name] - [Brief description]
+**🌞 Lunch:** [Dish Name] - [Brief description]  
+**🌙 Dinner:** [Dish Name] - [Brief description]
+
+[Continue for all days]
+
+### 🛒 Smart Shopping List
+**Proteins:** [list items]
+**Vegetables & Fruits:** [list items]
+**Grains & Starches:** [list items]
+**Dairy & Alternatives:** [list items]
+**Pantry Essentials:** [list items]
+
+### 💡 Meal Prep Tips
+- [3-4 practical tips for the week]
+
+Make it engaging, practical, and personalized!"""
+
+    try:
+        print(f"🤖 Generating meal plan with prompt: {prompt[:100]}...")
+        response = model.generate_content(prompt)
+        generated_plan = response.text.strip()
+        print("✅ Meal plan generated successfully")
+        return generated_plan
+    except Exception as e:
+        print(f"❌ Error generating meal plan: {e}")
+        return f"Sorry, I couldn't generate a meal plan right now. Error: {str(e)}"
+
+def get_meal_type_recipes(meal_type: str, limit: int = 10, dietary_preferences: list = []) -> list:
+    """Generate recipe suggestions for specific meal types using AI"""
+    if not model:
+        fallback_recipes = {
+            'breakfast': [
+                'Avocado Toast with Poached Egg', 'Greek Yogurt Parfait with Berries', 
+                'Overnight Oats with Banana', 'Veggie Scrambled Eggs', 'Smoothie Bowl'
+            ],
+            'lunch': [
+                'Quinoa Buddha Bowl', 'Grilled Chicken Caesar Salad', 'Turkey Club Sandwich',
+                'Lentil Soup with Crusty Bread', 'Pasta Primavera'
+            ],
+            'dinner': [
+                'Baked Salmon with Roasted Vegetables', 'Chicken Stir Fry', 'Spaghetti Carbonara',
+                'Beef Tacos with Black Beans', 'Vegetable Curry with Rice'
+            ]
+        }
+        return fallback_recipes.get(meal_type, ['Sample Recipe'])[:limit]
+    
+    # Build dietary restrictions
+    dietary_str = ""
+    if dietary_preferences:
+        dietary_str = f" that are {', '.join(dietary_preferences)}"
+    
+    prompt = f"""Generate {limit} diverse and appealing {meal_type} recipe names{dietary_str}.
+
+Requirements:
+- Include variety in cuisines (American, Italian, Asian, Mexican, Indian, etc.)
+- Mix of cooking methods (baked, grilled, pan-fried, no-cook, etc.)  
+- Range from quick 15-minute meals to more elaborate dishes
+- Include both classic and creative modern recipes
+- Make them sound appetizing and specific
+
+Return ONLY a numbered list of recipe names, no descriptions:
+1. [Recipe Name]
+2. [Recipe Name]
+etc."""
+
+    try:
+        response = model.generate_content(prompt)
+        
+        # Parse the response to extract just the recipe names
+        lines = response.text.strip().split('\n')
+        recipes = []
+        
+        for line in lines:
+            # Remove numbering and clean up
+            cleaned = re.sub(r'^\d+\.\s*', '', line.strip())
+            if cleaned and len(cleaned) > 3:
+                recipes.append(cleaned)
+        
+        return recipes[:limit]
+        
+    except Exception as e:
+        print(f"❌ Error generating {meal_type} recipes: {e}")
+        # Fallback recipes by meal type
+        fallback_recipes = {
+            'breakfast': [
+                'Avocado Toast with Poached Egg', 'Greek Yogurt Parfait with Berries', 
+                'Overnight Oats with Banana', 'Veggie Scrambled Eggs', 'Smoothie Bowl'
+            ],
+            'lunch': [
+                'Quinoa Buddha Bowl', 'Grilled Chicken Caesar Salad', 'Turkey Club Sandwich',
+                'Lentil Soup with Crusty Bread', 'Pasta Primavera'
+            ],
+            'dinner': [
+                'Baked Salmon with Roasted Vegetables', 'Chicken Stir Fry', 'Spaghetti Carbonara',
+                'Beef Tacos with Black Beans', 'Vegetable Curry with Rice'
+            ]
+        }
+        return fallback_recipes.get(meal_type, ['Sample Recipe'])[:limit]
+
+def generate_shopping_list(meal_plan_text: str) -> dict:
+    """Extract and organize shopping list from meal plan using AI"""
+    if not model:
+        return {
+            'proteins': ['chicken', 'fish', 'eggs', 'beans'],
+            'vegetables': ['broccoli', 'carrots', 'spinach', 'onions'],
+            'fruits': ['bananas', 'berries', 'apples'],
+            'grains': ['rice', 'quinoa', 'bread'],
+            'dairy': ['milk', 'yogurt', 'cheese'],
+            'pantry': ['olive oil', 'salt', 'pepper', 'garlic'],
+            'estimated_cost': '$60-80',
+            'serves': '2 people'
+        }
+    
+    prompt = f"""From this meal plan, create a comprehensive shopping list organized by category.
+
+Meal Plan:
+{meal_plan_text}
+
+Return ONLY a JSON object with this format:
+{{
+    "proteins": ["chicken breast", "salmon fillets", "eggs"],
+    "vegetables": ["broccoli", "carrots", "spinach"],
+    "fruits": ["bananas", "berries", "apples"],
+    "grains": ["quinoa", "brown rice", "whole wheat bread"],
+    "dairy": ["greek yogurt", "milk", "cheese"],
+    "pantry": ["olive oil", "garlic", "onions", "spices"],
+    "estimated_cost": "$75-100",
+    "serves": "2-3 people"
+}}"""
+
+    try:
+        response = model.generate_content(prompt)
+        import json
+        return json.loads(response.text.strip())
+    except Exception as e:
+        print(f"❌ Error generating shopping list: {e}")
+        return {
+            'proteins': ['chicken', 'fish', 'eggs'],
+            'vegetables': ['vegetables', 'fruits'],
+            'grains': ['rice', 'bread'],
+            'dairy': ['milk', 'cheese'],
+            'pantry': ['cooking oil', 'spices'],
+            'estimated_cost': '$50-70',
+            'serves': '2 people'
+        }

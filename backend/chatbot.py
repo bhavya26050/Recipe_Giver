@@ -8,7 +8,7 @@ from typing import Optional, Dict, Any
 import json
 from dotenv import load_dotenv
 import random
-from model import classify_recipe_dietary, generate_meal_plan, get_meal_type_recipes
+from model import classify_recipe_dietary, generate_meal_plan, get_meal_type_recipes, generate_shopping_list
 import ast
 
 # Load environment variables from .env file
@@ -552,30 +552,65 @@ def classify_dietary_flask():
 
 @app.route('/api/generate-meal-plan', methods=['POST'])
 def generate_meal_plan_flask():
-    """Generate a weekly meal plan (Flask version)"""
+    """Generate a personalized weekly meal plan using AI"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+            
         days = data.get('days', 7)
         dietary_preferences = data.get('dietary_preferences', [])
+        cuisine_preferences = data.get('cuisine_preferences', [])
+        cooking_time = data.get('cooking_time_preference', 'any')
         
-        meal_plan = generate_meal_plan(days, dietary_preferences)
+        print(f"🍽️ Generating {days}-day meal plan with preferences: {dietary_preferences}")
+        
+        # Generate meal plan using AI
+        meal_plan = generate_meal_plan(
+            days=days, 
+            dietary_preferences=dietary_preferences,
+            cuisine_preferences=cuisine_preferences,
+            cooking_time_preference=cooking_time
+        )
+        
+        print("✅ Meal plan generated, now generating shopping list...")
+        
+        # Generate shopping list from the meal plan
+        shopping_list = generate_shopping_list(meal_plan)
+        
+        print("✅ Shopping list generated successfully")
         
         return jsonify({
             'success': True,
             'meal_plan': meal_plan,
-            'message': f'Generated {days}-day meal plan successfully!'
+            'shopping_list': shopping_list,
+            'days': days,
+            'preferences': {
+                'dietary': dietary_preferences,
+                'cuisine': cuisine_preferences,
+                'cooking_time': cooking_time
+            },
+            'message': f'Generated personalized {days}-day meal plan!'
         })
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"❌ Error generating meal plan: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'success': False,
+            'message': 'Failed to generate meal plan'
+        }), 500
 
 @app.route('/api/recipes-by-meal-type', methods=['POST'])
 def recipes_by_meal_type_flask():
-    """Get recipes filtered by meal type (Flask version)"""
+    """Get AI-generated recipes filtered by meal type"""
     try:
         data = request.get_json()
-        meal_type = data.get('meal_type', '').strip()
-        limit = data.get('limit', 10)
+        meal_type = data.get('meal_type', '').strip().lower()
+        limit = data.get('limit', 8)
+        dietary_preferences = data.get('dietary_preferences', [])
         
         valid_meal_types = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
         
@@ -584,13 +619,91 @@ def recipes_by_meal_type_flask():
                 'error': f'Invalid meal type. Must be one of: {", ".join(valid_meal_types)}'
             }), 400
         
-        recipes = get_meal_type_recipes(meal_type, limit)
+        print(f"🍽️ Generating {meal_type} recipes with dietary preferences: {dietary_preferences}")
+        
+        # Generate recipes using AI
+        recipes = get_meal_type_recipes(meal_type, limit, dietary_preferences)
         
         return jsonify({
             'success': True,
             'meal_type': meal_type,
             'recipes': recipes,
-            'count': len(recipes)
+            'count': len(recipes),
+            'dietary_preferences': dietary_preferences
+        })
+    
+    except Exception as e:
+        print(f"❌ Error generating {meal_type} recipes: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Add new endpoints for enhanced functionality
+
+@app.route('/api/modify-recipe', methods=['POST'])
+def modify_recipe_flask():
+    """Suggest recipe modifications based on dietary needs or available ingredients"""
+    try:
+        data = request.get_json()
+        recipe_text = data.get('recipe', '').strip()
+        dietary_needs = data.get('dietary_needs', [])
+        available_ingredients = data.get('available_ingredients', [])
+        
+        if not recipe_text:
+            return jsonify({'error': 'Recipe text is required'}), 400
+        
+        modifications = suggest_recipe_modifications(
+            recipe_text, 
+            dietary_needs, 
+            available_ingredients
+        )
+        
+        return jsonify({
+            'success': True,
+            'original_recipe': recipe_text,
+            'modifications': modifications,
+            'dietary_needs': dietary_needs,
+            'available_ingredients': available_ingredients
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/analyze-nutrition', methods=['POST'])
+def analyze_nutrition_flask():
+    """Analyze nutritional content of a recipe"""
+    try:
+        data = request.get_json()
+        recipe_text = data.get('recipe', '').strip()
+        
+        if not recipe_text:
+            return jsonify({'error': 'Recipe text is required'}), 400
+        
+        nutrition_info = analyze_nutritional_content(recipe_text)
+        
+        return jsonify({
+            'success': True,
+            'recipe': recipe_text,
+            'nutrition': nutrition_info
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate-shopping-list', methods=['POST'])
+def generate_shopping_list_flask():
+    """Generate shopping list from meal plan"""
+    try:
+        data = request.get_json()
+        meal_plan = data.get('meal_plan', '').strip()
+        
+        if not meal_plan:
+            return jsonify({'error': 'Meal plan is required'}), 400
+        
+        shopping_list = generate_shopping_list(meal_plan)
+        
+        return jsonify({
+            'success': True,
+            'meal_plan': meal_plan,
+            'shopping_list': shopping_list
         })
     
     except Exception as e:
