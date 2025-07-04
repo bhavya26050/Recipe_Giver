@@ -106,10 +106,20 @@ export default function RegisterPage() {
       </div>
 
       {/* Back to Home Button */}
-      <div className="absolute top-6 left-6 z-10">
+      <div className="absolute top-6 left-6 z-50"> {/* Changed from z-10 to z-50 */}
         <button 
-          onClick={() => router.push('/')}
-          className="flex items-center gap-2 px-4 py-2 text-white hover:text-emerald-200 transition-colors"
+          onClick={() => {
+            console.log('Back to Home button clicked'); // Debug log
+            try {
+              router.push('/');
+            } catch (error) {
+              console.error('Navigation error:', error);
+              // Fallback: Use window.location if router fails
+              window.location.href = '/';
+            }
+          }}
+          className="flex items-center gap-2 px-4 py-2 text-white hover:text-emerald-200 transition-colors cursor-pointer"
+          style={{ zIndex: 9999 }} // Additional inline style for extra safety
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Home</span>
@@ -274,7 +284,7 @@ export default function RegisterPage() {
                     type="button"
                     onClick={handleGoogleSignUp}
                     disabled={isSubmitting}
-                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-center gap-3 py-3 border border-gray-300 rounded-xl  transition-all transform hover:-translate-y-1 cursor-pointer bg-white hover:bg-gray-200 "
                   >
                     <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                     <span className="text-gray-700">Google</span>
