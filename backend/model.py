@@ -239,3 +239,22 @@ def generate_meal_plan(days: int = 7, dietary_preferences: List[str] = None) -> 
 def get_meal_type_recipes(meal_type: str, limit: int = 10) -> List[Dict]:
     """Get recipes by meal type"""
     return meal_planner.get_recipes_by_meal_type(meal_type, limit)
+
+# Additional functionality for related recipe suggestions
+def suggest_related_recipes(recipes_df, dish_name: str):
+    """Suggest related recipes based on dish name"""
+    related = recipes_df[recipes_df['title'].str.contains(dish_name.split()[-1], case=False, na=False)]
+    related = related[~related['title'].str.lower().eq(dish_name.lower())]
+    suggestions = related['title'].dropna().unique().tolist()[:5]
+
+    main_recipe_text = f"Main Recipe: {dish_name}\nIngredients: {', '.join(related['ingredients'].dropna().tolist())}"
+    
+    if suggestions:
+        main_recipe_text += "\n\n🍽️ You might also enjoy:\n"
+        for s in suggestions:
+            main_recipe_text += f"- {s}\n"
+    
+    return main_recipe_text
+
+# Example usage
+# print(suggest_related_recipes(df, "Spaghetti Bolognese"))

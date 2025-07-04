@@ -140,13 +140,9 @@ export default function ChatPage() {
 
           const chats = querySnapshot.docs.map((doc, idx) => ({
             id: doc.id,
-            title: doc.data().prompt?.substring(0, 25) || `Chat ${idx + 1}`,
-            messages: [
-              { from: 'user', text: doc.data().prompt, id: `${doc.id}-user` },
-              { from: 'bot', text: doc.data().response, id: `${doc.id}-bot` }
-            ]
+            title: doc.data().title || `Chat ${idx + 1}`,
+            messages: doc.data().messages || [],
           }));
-
           setPreviousChats(chats);
         } catch (error) {
           console.error('Error loading chat history:', error);
@@ -248,9 +244,30 @@ export default function ChatPage() {
         return;
       }
 
+      // After you get the main recipe response (e.g., for "Paneer Butter Masala")
+      const mainRecipeText = data.response; // your main recipe string
+      const dishName = extractDishName(mainRecipeText); // implement this to get the dish name
+
+      // Fetch related recipes
+      const relatedRes = await fetch('/api/related-recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dish_name: dishName }),
+      });
+      const relatedData = await relatedRes.json();
+
+      let relatedSection = '';
+      if (relatedData.success && relatedData.suggestions.length > 0) {
+        relatedSection = `\n\n🍽️ **You might also enjoy:**\n` +
+          relatedData.suggestions.map((title, i) => `- ${title}`).join('\n');
+      }
+
+      // Combine and display
+      const fullRecipeText = mainRecipeText + relatedSection;
+
       setMessages(prev => [
         ...prev,
-        { from: 'bot', text: data.response, id: Date.now() }
+        { from: 'bot', text: fullRecipeText, id: Date.now() }
       ]);
     } catch (error) {
       setIsTyping(false);
@@ -379,23 +396,41 @@ export default function ChatPage() {
       }
       
       const data = await response.json();
-      const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
-      
+      let recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
+
+      // --- SUGGEST RELATED RECIPES ---
+      // Try to extract the dish name from the recipe title (first line or use input)
+      let dishName = '';
+      const match = recipeResponse.match(/^([^\n]+)\n/); // first line as title
+      if (match && match[1].length < 60) {
+        dishName = match[1].replace(/[^a-zA-Z0-9 ]/g, '').trim();
+      } else {
+        dishName = userMessage.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+      }
+
+      // Fetch related recipes
+      let relatedSection = '';
+      try {
+        const relatedRes = await fetch('/api/related-recipes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dish_name: dishName }),
+        });
+        const relatedData = await relatedRes.json();
+        if (relatedData.success && relatedData.suggestions.length > 0) {
+          relatedSection = `\n\n🍽️ **You might also enjoy:**\n` +
+            relatedData.suggestions.map((title: string) => `- ${title}`).join('\n');
+        }
+      } catch (err) {
+        // Ignore related recipe errors, just show main recipe
+      }
+
+      recipeResponse += relatedSection;
+
       setMessages(prev => [
         ...prev,
         { from: 'bot', text: recipeResponse, id: Date.now() }
       ]);
-      
-      // Save to Firebase if user is logged in
-      const user = auth.currentUser;
-      if (user && userMessage && recipeResponse) {
-        try {
-          await saveUserHistory(user.uid, userMessage, recipeResponse);
-        } catch (error) {
-          console.error('Error saving to history:', error);
-        }
-      }
-      
     } catch (error) {
       setIsTyping(false);
       setMessages(prev => [
@@ -435,15 +470,38 @@ export default function ChatPage() {
     }
   };
   
-  const clearChat = () => {
+  const clearChat = async () => {
+    if (messages.length > 1) {
+      const firstUserMsg = messages.find(m => m.from === 'user');
+      const title = firstUserMsg
+        ? firstUserMsg.text.substring(0, 25)
+        : `Chat ${previousChats.length + 1}`;
+
+      // Save to Firestore
+      const user = auth.currentUser;
+      if (user) {
+        await saveUserHistory(user.uid, title, messages);
+      }
+
+      // Save to UI
+      setPreviousChats(prev => [
+        {
+          id: Date.now().toString(),
+          title,
+          messages: [...messages],
+        },
+        ...prev,
+      ]);
+    }
+
     setMessages([
       { from: 'bot', text: 'Chat cleared! How can I help you today?', id: Date.now() }
     ]);
-    
+
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
-    
+
     setTimeout(() => {
       if (inputRef.current) {
         inputRef.current.focus();
@@ -453,6 +511,23 @@ export default function ChatPage() {
 
   const toggleSidebar = () => {
     setIsSidebarOpen(!isSidebarOpen);
+  };
+
+  // Add this function inside your ChatPage component:
+  const handleDeleteHistory = async (chatId: string) => {
+    // Remove from UI
+    setPreviousChats(prev => prev.filter(chat => chat.id !== chatId));
+
+    // Remove from Firestore
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        const docRef = doc(db, 'users', user.uid, 'history', chatId);
+        await deleteDoc(docRef);
+      }
+    } catch (error) {
+      console.error('Error deleting chat history:', error);
+    }
   };
 
   // Show loading screen while checking authentication
@@ -480,7 +555,6 @@ export default function ChatPage() {
           Quick Actions
         </h3>
       </div>
-      
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <button
           onClick={() => setInput('Generate a meal plan for this week')}
@@ -489,7 +563,6 @@ export default function ChatPage() {
           <Calendar className="w-4 h-4 mx-auto mb-1" />
           Meal Plan
         </button>
-        
         <button
           onClick={() => setInput('Show me breakfast recipes')}
           className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -497,7 +570,6 @@ export default function ChatPage() {
           <Coffee className="w-4 h-4 mx-auto mb-1" />
           Breakfast
         </button>
-        
         <button
           onClick={() => setInput('What should I cook for lunch?')}
           className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -505,7 +577,6 @@ export default function ChatPage() {
           <Sun className="w-4 h-4 mx-auto mb-1" />
           Lunch
         </button>
-        
         <button
           onClick={() => setInput('Suggest dinner recipes')}
           className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -517,13 +588,13 @@ export default function ChatPage() {
     </div>
   );
 
+  // ✅ SIDEBAR COMPONENT
   return (
     <div className={`h-screen w-full flex overflow-hidden transition-all duration-300 ${
       isDarkMode 
         ? 'bg-gradient-to-br from-slate-900 via-gray-900 to-slate-800 text-gray-100' 
         : 'bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 text-gray-800'
     } font-sans`}>
-      
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
@@ -531,7 +602,7 @@ export default function ChatPage() {
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
-      
+
       {/* Sidebar */}
       <div 
         id="sidebar"
@@ -544,6 +615,7 @@ export default function ChatPage() {
         } backdrop-blur-xl border-r flex flex-col shadow-2xl overflow-hidden`}
       >
         {/* Header */}
+        
         <div className={`p-6 border-b ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex items-center`}>
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'}`}>
@@ -582,6 +654,51 @@ export default function ChatPage() {
             <PlusCircle className="w-5 h-5" />
             Start New Chat
           </button>
+        </div>
+
+        {/* Chat History Section */}
+        <div className="px-4 pb-4 flex-1 overflow-y-auto">
+          <h3 className={`text-xs font-semibold mb-2 mt-2 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+            Chat History
+          </h3>
+          {previousChats.length === 0 && (
+            <div className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>No history yet.</div>
+          )}
+          <ul>
+            {previousChats.map((chat) => (
+              <li
+                key={chat.id}
+                className={`mb-2 p-2 rounded-lg cursor-pointer flex items-center justify-between transition-all ${
+                  isDarkMode
+                    ? 'hover:bg-slate-800 text-gray-200'
+                    : 'hover:bg-emerald-50 text-gray-700'
+                }`}
+              >
+                <span
+                  className="flex-1 flex items-center min-w-0"
+                  onClick={() => {
+                    setMessages(chat.messages);
+                    setIsSidebarOpen(false);
+                  }}
+                  title={chat.title}
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  <BookOpen className="inline w-4 h-4 mr-2 flex-shrink-0" />
+                  {chat.title}
+                </span>
+                <button
+                  className={`ml-2 p-1 rounded hover:bg-red-100 ${isDarkMode ? 'hover:bg-red-900' : ''}`}
+                  title="Delete chat"
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleDeleteHistory(chat.id);
+                  }}
+                >
+                  <Trash2 className={`w-4 h-4 ${isDarkMode ? 'text-red-400' : 'text-red-600'}`} />
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
         
         {/* User Profile */}
@@ -771,6 +888,7 @@ export default function ChatPage() {
               : 'bg-white/80 border-gray-200/50'
           } backdrop-blur-xl border-t`}>
             <div className="max-w-4xl mx-auto">
+              {/* Only one .relative wrapper here */}
               <div className="relative">
                 <input
                   ref={inputRef}
@@ -791,7 +909,7 @@ export default function ChatPage() {
                   } focus:outline-none backdrop-blur-sm`}
                   disabled={isRecording}
                 />
-                
+
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <button 
                     onClick={toggleVoiceRecording} 
@@ -808,7 +926,6 @@ export default function ChatPage() {
                   >
                     {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                   </button>
-                  
                   <button 
                     onClick={handleSend} 
                     disabled={!input.trim() && !isRecording}
@@ -823,21 +940,19 @@ export default function ChatPage() {
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
-              </div>
-              
-              {/* Input Helper Text */}
-              <div className={`flex justify-between items-center mt-3 text-xs ${
-                isDarkMode ? 'text-gray-400' : 'text-gray-500'
-              }`}>
-                <div className="flex items-center gap-4">
-y                  <span className="flex items-center gap-1">
+
+                {/* Helper text below input, single row */}
+                <div className={`flex justify-between items-center mt-3 text-xs ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
+                  <span className="flex items-center gap-1">
                     <Star className="w-3 h-3" />
                     AI-powered recipe assistant
                   </span>
+                  <span>
+                    Press Enter to send
+                  </span>
                 </div>
-                <span>
-                  Press Enter to send
-                </span>
               </div>
             </div>
           </div>
