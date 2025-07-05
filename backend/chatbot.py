@@ -499,143 +499,356 @@ Format as a numbered list."""
 
 @app.route('/api/related-recipes', methods=['POST'])
 def related_recipes():
+    """AI-powered recipe recommendations using Gemini"""
     data = request.get_json()
-    dish_name = data.get('dish_name', '').lower()
+    dish_name = data.get('dish_name', '').strip()
     
+    if not dish_name:
+        return jsonify({'error': 'Dish name is required'}), 400
+    
+    try:
+        # **🔥 AI-POWERED RECOMMENDATION SYSTEM**
+        suggestions = get_ai_recipe_recommendations(dish_name)
+        
+        # **🔥 ENHANCED WITH DATABASE SEARCH**
+        database_suggestions = search_similar_recipes_in_db(dish_name)
+        
+        # **🔥 COMBINE AI AND DATABASE RECOMMENDATIONS**
+        all_suggestions = []
+        
+        # Add AI suggestions first (more creative and diverse)
+        all_suggestions.extend(suggestions[:3])
+        
+        # Add database suggestions that aren't duplicates
+        for db_suggestion in database_suggestions[:3]:
+            if not any(
+                similar_recipe_names(db_suggestion, existing) 
+                for existing in all_suggestions
+            ):
+                all_suggestions.append(db_suggestion)
+        
+        # Limit to 5 suggestions
+        final_suggestions = all_suggestions[:5]
+        
+        print(f"🎯 AI + DB recommendations for '{dish_name}': {final_suggestions}")
+        
+        return jsonify({
+            'success': True,
+            'dish_name': dish_name,
+            'suggestions': final_suggestions,
+            'ai_suggestions': len(suggestions),
+            'db_suggestions': len(database_suggestions),
+            'algorithm_used': 'ai_powered_hybrid'
+        })
+    
+    except Exception as e:
+        print(f"❌ Error getting AI recommendations: {e}")
+        
+        # **🔥 FALLBACK TO DATABASE-ONLY SEARCH**
+        try:
+            fallback_suggestions = search_similar_recipes_in_db(dish_name)
+            return jsonify({
+                'success': True,
+                'dish_name': dish_name,
+                'suggestions': fallback_suggestions[:5],
+                'algorithm_used': 'database_fallback',
+                'note': 'AI recommendations unavailable, using database search'
+            })
+        except Exception as fallback_error:
+            print(f"❌ Fallback also failed: {fallback_error}")
+            return jsonify({
+                'error': str(e),
+                'fallback_error': str(fallback_error)
+            }), 500
+
+def get_ai_recipe_recommendations(dish_name: str, count: int = 5) -> list:
+    """Get intelligent recipe recommendations using AI"""
+    prompt = f"""Based on the dish "{dish_name}", suggest {count} similar or complementary recipes that someone might enjoy.
+
+Consider:
+- Same main ingredient (if applicable)
+- Similar cuisine style
+- Complementary flavors
+- Same meal category (breakfast/lunch/dinner/dessert)
+- Similar cooking techniques
+- Seasonal compatibility
+
+Requirements:
+- Return ONLY recipe names, no descriptions
+- Make suggestions creative but realistic
+- Ensure variety in cooking methods
+- Consider dietary patterns
+- Format as a simple numbered list
+
+Dish: {dish_name}
+
+Recommendations:"""
+
+    try:
+        response = model.generate_content(prompt)
+        suggestions_text = response.text.strip()
+        
+        # Parse the AI response to extract recipe names
+        suggestions = []
+        lines = suggestions_text.split('\n')
+        
+        for line in lines:
+            # Clean up the line and extract recipe name
+            cleaned = line.strip()
+            # Remove numbering (1., 2., etc.)
+            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
+            # Remove extra formatting
+            cleaned = cleaned.strip('- •*')
+            
+            if cleaned and len(cleaned) > 3:
+                suggestions.append(cleaned)
+        
+        print(f"🤖 AI generated {len(suggestions)} recommendations for '{dish_name}'")
+        return suggestions[:count]
+        
+    except Exception as e:
+        print(f"❌ Error getting AI recommendations: {e}")
+        return []
+
+def search_similar_recipes_in_db(dish_name: str, limit: int = 5) -> list:
+    """Search for similar recipes in database using intelligent matching"""
+    if not recipe_db:
+        return []
+    
+    dish_lower = dish_name.lower()
     suggestions = []
     
-    # **🔥 ENHANCED: Priority ingredient detection with better logic**
-    main_ingredients = {
-        'paneer': ['paneer', 'cottage cheese'],
-        'chicken': ['chicken'],
-        'mutton': ['mutton', 'lamb'],
-        'beef': ['beef'],
-        'fish': ['fish'],
-        'prawns': ['prawns', 'shrimp'],
-        'egg': ['egg'],
-        'dal': ['dal', 'lentil', 'lentils'],
-        'potato': ['potato', 'aloo'],
-        'rice': ['rice', 'biryani'],
-        'pasta': ['pasta', 'spaghetti', 'macaroni'],
-        'vegetables': ['vegetable', 'veggie', 'veg']
+    # **🔥 INTELLIGENT KEYWORD EXTRACTION**
+    keywords = extract_recipe_keywords(dish_name)
+    print(f"🔍 Extracted keywords from '{dish_name}': {keywords}")
+    
+    # **🔥 MULTI-TIER SEARCH STRATEGY**
+    
+    # Tier 1: Main ingredient matching
+    main_ingredient = keywords.get('main_ingredient')
+    if main_ingredient:
+        ingredient_matches = find_recipes_by_ingredient(main_ingredient, dish_lower)
+        suggestions.extend(ingredient_matches[:3])
+    
+    # Tier 2: Cuisine/style matching
+    cuisine = keywords.get('cuisine')
+    if cuisine and len(suggestions) < limit:
+        cuisine_matches = find_recipes_by_cuisine(cuisine, dish_lower)
+        for match in cuisine_matches:
+            if match not in suggestions:
+                suggestions.append(match)
+                if len(suggestions) >= limit:
+                    break
+    
+    # Tier 3: Cooking method matching
+    cooking_method = keywords.get('cooking_method')
+    if cooking_method and len(suggestions) < limit:
+        method_matches = find_recipes_by_cooking_method(cooking_method, dish_lower)
+        for match in method_matches:
+            if match not in suggestions:
+                suggestions.append(match)
+                if len(suggestions) >= limit:
+                    break
+    
+    # Tier 4: Meal type matching
+    meal_type = keywords.get('meal_type')
+    if meal_type and len(suggestions) < limit:
+        meal_matches = find_recipes_by_meal_type(meal_type, dish_lower)
+        for match in meal_matches:
+            if match not in suggestions:
+                suggestions.append(match)
+                if len(suggestions) >= limit:
+                    break
+    
+    print(f"📊 Database search found {len(suggestions)} suggestions")
+    return suggestions[:limit]
+
+def extract_recipe_keywords(dish_name: str) -> dict:
+    """Extract key characteristics of a dish using AI"""
+    prompt = f"""Analyze the dish "{dish_name}" and extract key characteristics.
+
+Return a JSON object with these fields:
+- main_ingredient: primary protein/ingredient (chicken, paneer, chocolate, etc.)
+- cuisine: cuisine style (indian, italian, chinese, american, etc.)
+- cooking_method: primary cooking technique (fried, baked, grilled, etc.)
+- meal_type: when it's typically eaten (breakfast, lunch, dinner, dessert, snack)
+- category: dish category (curry, pasta, cake, soup, etc.)
+
+Examples:
+"Butter Chicken" → {{"main_ingredient": "chicken", "cuisine": "indian", "cooking_method": "simmered", "meal_type": "dinner", "category": "curry"}}
+"Chocolate Cake" → {{"main_ingredient": "chocolate", "cuisine": "western", "cooking_method": "baked", "meal_type": "dessert", "category": "cake"}}
+
+Dish: {dish_name}
+
+Return only the JSON object:"""
+
+    try:
+        response = model.generate_content(prompt)
+        # Parse JSON response
+        import json
+        keywords = json.loads(response.text.strip())
+        return keywords
+    except Exception as e:
+        print(f"❌ Error extracting keywords: {e}")
+        # Fallback to simple keyword extraction
+        dish_lower = dish_name.lower()
+        return {
+            'main_ingredient': extract_main_ingredient_simple(dish_lower),
+            'cuisine': extract_cuisine_simple(dish_lower),
+            'cooking_method': extract_cooking_method_simple(dish_lower),
+            'meal_type': extract_meal_type_simple(dish_lower),
+            'category': extract_category_simple(dish_lower)
+        }
+
+def extract_main_ingredient_simple(dish_lower: str) -> str:
+    """Simple fallback for main ingredient extraction"""
+    ingredients = {
+        'chicken': ['chicken'], 'paneer': ['paneer'], 'chocolate': ['chocolate'],
+        'fish': ['fish', 'salmon', 'tuna'], 'beef': ['beef'], 'pork': ['pork'],
+        'egg': ['egg'], 'potato': ['potato'], 'rice': ['rice', 'biryani'],
+        'pasta': ['pasta', 'spaghetti'], 'dal': ['dal', 'lentil']
     }
     
-    # **🔥 FIND THE MAIN INGREDIENT WITH PRIORITY**
-    found_ingredient = None
-    found_keywords = []
+    for ingredient, keywords in ingredients.items():
+        if any(keyword in dish_lower for keyword in keywords):
+            return ingredient
+    return 'mixed'
+
+def extract_cuisine_simple(dish_lower: str) -> str:
+    """Simple fallback for cuisine extraction"""
+    cuisines = {
+        'indian': ['masala', 'curry', 'biryani', 'dal', 'tandoori', 'paneer'],
+        'italian': ['pasta', 'pizza', 'risotto', 'carbonara'],
+        'chinese': ['fried rice', 'noodles', 'stir fry'],
+        'american': ['burger', 'bbq', 'sandwich']
+    }
     
-    # First, check for specific high-priority ingredients
-    for ingredient, keywords in main_ingredients.items():
-        for keyword in keywords:
-            if keyword in dish_name:
-                found_ingredient = ingredient
-                found_keywords = keywords
-                break
-        if found_ingredient:
-            break
+    for cuisine, keywords in cuisines.items():
+        if any(keyword in dish_lower for keyword in keywords):
+            return cuisine
+    return 'international'
+
+def extract_cooking_method_simple(dish_lower: str) -> str:
+    """Simple fallback for cooking method extraction"""
+    methods = {
+        'fried': ['fried', 'fry'], 'baked': ['baked', 'cake'],
+        'grilled': ['grilled', 'bbq'], 'steamed': ['steamed'],
+        'boiled': ['boiled', 'soup']
+    }
     
-    print(f"🔍 For dish '{dish_name}', found main ingredient: '{found_ingredient}'")
+    for method, keywords in methods.items():
+        if any(keyword in dish_lower for keyword in keywords):
+            return method
+    return 'mixed'
+
+def extract_meal_type_simple(dish_lower: str) -> str:
+    """Simple fallback for meal type extraction"""
+    if any(word in dish_lower for word in ['cake', 'ice cream', 'dessert', 'sweet']):
+        return 'dessert'
+    elif any(word in dish_lower for word in ['breakfast', 'pancake', 'toast']):
+        return 'breakfast'
+    elif any(word in dish_lower for word in ['salad', 'sandwich', 'wrap']):
+        return 'lunch'
+    else:
+        return 'dinner'
+
+def extract_category_simple(dish_lower: str) -> str:
+    """Simple fallback for category extraction"""
+    categories = {
+        'curry': ['curry', 'masala'], 'cake': ['cake'],
+        'pasta': ['pasta'], 'soup': ['soup'],
+        'salad': ['salad'], 'rice': ['rice', 'biryani']
+    }
     
-    # **🔥 PRIORITY 1: Find recipes with same main ingredient**
-    if found_ingredient and found_keywords:
-        for recipe in recipe_db:
-            title = recipe.get('title', '').lower()
-            if title != dish_name:
-                # Check if recipe contains any of the ingredient keywords
-                if any(keyword in title for keyword in found_keywords):
-                    suggestions.append(recipe.get('title', ''))
-                    if len(suggestions) >= 5:
-                        break
+    for category, keywords in categories.items():
+        if any(keyword in dish_lower for keyword in keywords):
+            return category
+    return 'main_dish'
+
+def find_recipes_by_ingredient(ingredient: str, exclude_dish: str) -> list:
+    """Find recipes containing specific ingredient"""
+    matches = []
+    for recipe in recipe_db:
+        title = recipe.get('title', '').lower()
+        ingredients_text = recipe.get('ingredients', '').lower()
         
-        print(f"✅ Found {len(suggestions)} recipes with '{found_ingredient}'")
-    
-    # **🔥 PRIORITY 2: Same cuisine type (only if we have enough suggestions)**
-    if len(suggestions) < 5:
-        cuisine_keywords = {
-            'indian': ['masala', 'curry', 'biryani', 'dal', 'paneer', 'tandoori', 'roti', 'naan', 'tikka'],
-            'italian': ['pasta', 'pizza', 'spaghetti', 'lasagna', 'risotto', 'carbonara'],
-            'chinese': ['fried rice', 'noodles', 'stir fry', 'chow mein', 'sweet and sour'],
-            'mexican': ['tacos', 'burrito', 'quesadilla', 'enchilada', 'salsa'],
-            'american': ['burger', 'sandwich', 'bbq', 'grilled']
-        }
-        
-        dish_cuisine = None
-        for cuisine, keywords in cuisine_keywords.items():
-            if any(keyword in dish_name for keyword in keywords):
-                dish_cuisine = cuisine
-                break
-        
-        if dish_cuisine:
-            cuisine_keywords_list = cuisine_keywords[dish_cuisine]
-            for recipe in recipe_db:
-                title = recipe.get('title', '').lower()
-                if (title != dish_name and 
-                    title not in [s.lower() for s in suggestions] and
-                    any(keyword in title for keyword in cuisine_keywords_list)):
-                    suggestions.append(recipe.get('title', ''))
-                    if len(suggestions) >= 5:
-                        break
-            
-            print(f"✅ Added {cuisine} cuisine suggestions")
-    
-    # **🔥 PRIORITY 3: Cooking method matching**
-    if len(suggestions) < 5:
-        cooking_methods = ['grilled', 'fried', 'roasted', 'baked', 'steamed', 'curry', 'masala']
-        dish_method = None
-        
-        for method in cooking_methods:
-            if method in dish_name:
-                dish_method = method
-                break
-        
-        if dish_method:
-            for recipe in recipe_db:
-                title = recipe.get('title', '').lower()
-                if (title != dish_name and 
-                    title not in [s.lower() for s in suggestions] and
-                    dish_method in title):
-                    suggestions.append(recipe.get('title', ''))
-                    if len(suggestions) >= 5:
-                        break
-    
-    # **🔥 PRIORITY 4: Fallback to popular dishes of same type**
-    if len(suggestions) < 5:
-        popular_by_ingredient = {
-            'paneer': ['Paneer Makhani', 'Palak Paneer', 'Paneer Tikka', 'Shahi Paneer', 'Kadai Paneer'],
-            'chicken': ['Chicken Tikka Masala', 'Butter Chicken', 'Chicken Biryani', 'Grilled Chicken', 'Chicken Curry'],
-            'dal': ['Dal Tadka', 'Dal Makhani', 'Chana Dal', 'Moong Dal', 'Rajma'],
-            'rice': ['Vegetable Biryani', 'Fried Rice', 'Jeera Rice', 'Coconut Rice', 'Lemon Rice']
-        }
-        
-        if found_ingredient and found_ingredient in popular_by_ingredient:
-            popular_dishes = popular_by_ingredient[found_ingredient]
-            for dish in popular_dishes:
-                if (dish.lower() != dish_name and 
-                    dish not in suggestions):
-                    suggestions.append(dish)
-                    if len(suggestions) >= 5:
-                        break
-    
-    # **🔥 REMOVE DUPLICATES AND LIMIT**
-    unique_suggestions = []
-    seen = set()
-    for suggestion in suggestions:
-        suggestion_lower = suggestion.lower()
-        if suggestion_lower not in seen and suggestion_lower != dish_name:
-            unique_suggestions.append(suggestion)
-            seen.add(suggestion_lower)
-            if len(unique_suggestions) >= 5:
+        if (title != exclude_dish and 
+            ingredient.lower() in title and
+            ingredient.lower() in ingredients_text):
+            matches.append(recipe.get('title', ''))
+            if len(matches) >= 3:
                 break
     
-    print(f"🎯 Final suggestions for '{dish_name}': {unique_suggestions}")
+    return matches
+
+def find_recipes_by_cuisine(cuisine: str, exclude_dish: str) -> list:
+    """Find recipes from similar cuisine"""
+    cuisine_keywords = {
+        'indian': ['masala', 'curry', 'biryani', 'dal', 'tandoori', 'paneer', 'tikka'],
+        'italian': ['pasta', 'pizza', 'risotto', 'carbonara', 'marinara'],
+        'chinese': ['fried rice', 'noodles', 'stir fry', 'sweet and sour'],
+        'american': ['burger', 'bbq', 'sandwich', 'grilled']
+    }
     
-    return jsonify({
-        'success': True,
-        'dish_name': dish_name,
-        'main_ingredient_detected': found_ingredient,
-        'suggestions': unique_suggestions,
-        'algorithm_used': 'enhanced_ingredient_priority'
-    })
+    keywords = cuisine_keywords.get(cuisine.lower(), [])
+    matches = []
+    
+    for recipe in recipe_db:
+        title = recipe.get('title', '').lower()
+        if (title != exclude_dish and 
+            any(keyword in title for keyword in keywords)):
+            matches.append(recipe.get('title', ''))
+            if len(matches) >= 3:
+                break
+    
+    return matches
+
+def find_recipes_by_cooking_method(method: str, exclude_dish: str) -> list:
+    """Find recipes using similar cooking method"""
+    matches = []
+    for recipe in recipe_db:
+        title = recipe.get('title', '').lower()
+        if (title != exclude_dish and method.lower() in title):
+            matches.append(recipe.get('title', ''))
+            if len(matches) >= 2:
+                break
+    
+    return matches
+
+def find_recipes_by_meal_type(meal_type: str, exclude_dish: str) -> list:
+    """Find recipes of similar meal type"""
+    meal_keywords = {
+        'breakfast': ['breakfast', 'pancake', 'toast', 'oatmeal'],
+        'lunch': ['salad', 'sandwich', 'wrap', 'soup'],
+        'dinner': ['curry', 'roast', 'stir fry', 'casserole'],
+        'dessert': ['cake', 'ice cream', 'pie', 'cookies']
+    }
+    
+    keywords = meal_keywords.get(meal_type.lower(), [])
+    matches = []
+    
+    for recipe in recipe_db:
+        title = recipe.get('title', '').lower()
+        if (title != exclude_dish and 
+            any(keyword in title for keyword in keywords)):
+            matches.append(recipe.get('title', ''))
+            if len(matches) >= 2:
+                break
+    
+    return matches
+
+def similar_recipe_names(name1: str, name2: str) -> bool:
+    """Check if two recipe names are similar to avoid duplicates"""
+    # Simple similarity check - can be enhanced with fuzzy matching
+    words1 = set(name1.lower().split())
+    words2 = set(name2.lower().split())
+    
+    # If they share more than 60% of words, consider them similar
+    intersection = len(words1.intersection(words2))
+    union = len(words1.union(words2))
+    
+    similarity = intersection / union if union > 0 else 0
+    return similarity > 0.6
 
 @app.route('/api/classify-dietary', methods=['POST'])
 def classify_dietary_flask():

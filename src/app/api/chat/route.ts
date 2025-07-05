@@ -263,16 +263,91 @@ ${mealTypeResult.recipes.map((recipe: string, index: number) =>
         try {
           const related = await callBackend('/api/related-recipes', { dish_name: dishName });
           suggestions = related.suggestions || [];
+          console.log(`🔍 Related recipes for "${dishName}":`, suggestions);
         } catch (e) {
           console.warn("⚠️ Could not fetch related recipes.");
         }
 
-        const finalResponse = suggestions.length > 0
-          ? `${searchResult.recipe}\n\n🍽️ You might also enjoy:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-          : searchResult.recipe;
+        // **🔥 ENHANCED: Also try ingredient-based suggestions for database recipes**
+        if (suggestions.length < 3) {
+          try {
+            // **🔥 IMPROVED: Better main ingredient extraction for database recipes too**
+            const ingredientPriority = [
+              'paneer', 'chicken', 'mutton', 'beef', 'fish', 'prawns', 'lamb', 
+              'egg', 'tofu', 'dal', 'lentils', 'chickpeas', 'potato', 'cauliflower',
+              'spinach', 'okra', 'eggplant', 'mushroom', 'rice', 'pasta', 'noodles',
+              'chocolate', 'vanilla', 'strawberry', 'banana', 'apple', 'cake', 'bread'
+            ];
+            
+            // Find the most important ingredient
+            let mainIngredient = null;
+            const dishLower = dishName.toLowerCase();
+            
+            // **🔥 SPECIAL HANDLING FOR DESSERTS AND SPECIFIC DISHES**
+            if (dishLower.includes('chocolate')) {
+              mainIngredient = 'chocolate';
+            } else if (dishLower.includes('cake')) {
+              mainIngredient = 'cake';
+            } else if (dishLower.includes('paneer')) {
+              mainIngredient = 'paneer';
+            } else if (dishLower.includes('chicken')) {
+              mainIngredient = 'chicken';
+            } else if (dishLower.includes('dal') || dishLower.includes('lentil')) {
+              mainIngredient = 'dal';
+            } else if (dishLower.includes('biryani') || dishLower.includes('rice')) {
+              mainIngredient = 'rice';
+            } else {
+              // Check for priority ingredients in order
+              for (const ingredient of ingredientPriority) {
+                if (dishLower.includes(ingredient)) {
+                  mainIngredient = ingredient;
+                  break;
+                }
+              }
+            }
+            
+            console.log(`🔍 Extracted main ingredient: "${mainIngredient}" from dish: "${dishName}"`);
+            
+            if (mainIngredient) {
+              const ingredientResult = await callBackend('/api/search-by-ingredient', { 
+                ingredient: mainIngredient, 
+                offset: 0 
+              });
+              
+              if (ingredientResult.found && ingredientResult.recipes) {
+                // Add unique recipes that aren't already in suggestions
+                const additionalSuggestions = ingredientResult.recipes
+                  .filter((recipe: string) => {
+                    const recipeLower = recipe.toLowerCase();
+                    return !suggestions.some(s => s.toLowerCase() === recipeLower) && 
+                           recipeLower !== dishName.toLowerCase() &&
+                           // **🔥 ENSURE SUGGESTIONS CONTAIN THE MAIN INGREDIENT**
+                           recipeLower.includes(mainIngredient.toLowerCase());
+                  })
+                  .slice(0, 5 - suggestions.length);
+                
+                suggestions.push(...additionalSuggestions);
+                console.log(`✅ Added ${additionalSuggestions.length} ingredient-based suggestions for "${mainIngredient}"`);
+              }
+            }
+          } catch (e) {
+            console.warn("⚠️ Could not fetch ingredient-based suggestions for database recipe.", e);
+          }
+        }
+
+        // **🔥 BUILD FINAL RESPONSE WITH PROPER FORMATTING**
+        let finalResponse = searchResult.recipe;
+        
+        if (suggestions.length > 0) {
+          finalResponse += `\n\n---\n\n## 🍽️ You Might Also Enjoy:\n\n`;
+          finalResponse += suggestions.map((suggestion, index) => 
+            `**${index + 1}.** ${suggestion}`
+          ).join('\n');
+          finalResponse += `\n\n*Want the recipe for any of these? Just ask me! 😊*`;
+        }
 
         responseCache.set(cacheKey, finalResponse);
-        return NextResponse.json({ response: finalResponse, source: "database", dishName });
+        return NextResponse.json({ response: finalResponse, source: "database_with_suggestions", dishName });
       }
 
       // Generate recipe using AI
