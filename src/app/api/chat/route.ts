@@ -254,10 +254,12 @@ ${mealTypeResult.recipes.map((recipe: string, index: number) =>
       const dishName = extractResult.dish_name;
       console.log(`🎯 Dish: "${dishName}"`);
 
-      // Search in database
+      // Search in database first
       const searchResult = await callBackend('/api/search-recipe', { dish_name: dishName });
       if (searchResult.found) {
         let suggestions: string[] = [];
+        
+        // Get related recipes for database recipes
         try {
           const related = await callBackend('/api/related-recipes', { dish_name: dishName });
           suggestions = related.suggestions || [];
@@ -275,9 +277,91 @@ ${mealTypeResult.recipes.map((recipe: string, index: number) =>
 
       // Generate recipe using AI
       const generateResult = await callBackend('/api/generate-recipe', { dish_name: dishName, user_query: userQuery });
-      const response = generateResult.recipe;
-      responseCache.set(cacheKey, response);
-      return NextResponse.json({ response, source: "ai_generated", dishName });
+      
+      // **🔥 ADD RECOMMENDATIONS FOR AI-GENERATED RECIPES TOO**
+      let suggestions: string[] = [];
+      try {
+        const related = await callBackend('/api/related-recipes', { dish_name: dishName });
+        suggestions = related.suggestions || [];
+      } catch (e) {
+        console.warn("⚠️ Could not fetch related recipes for AI recipe.");
+      }
+
+      // **🔥 ENHANCED: Also try ingredient-based suggestions for AI recipes**
+      if (suggestions.length < 3) {
+        try {
+          // **🔥 IMPROVED: Better main ingredient extraction**
+          const ingredientPriority = [
+            'paneer', 'chicken', 'mutton', 'beef', 'fish', 'prawns', 'lamb', 
+            'egg', 'tofu', 'dal', 'lentils', 'chickpeas', 'potato', 'cauliflower',
+            'spinach', 'okra', 'eggplant', 'mushroom', 'rice', 'pasta', 'noodles'
+          ];
+          
+          // Find the most important ingredient (prioritize proteins and main vegetables)
+          let mainIngredient = null;
+          const dishLower = dishName.toLowerCase();
+          
+          // Check for priority ingredients in order
+          for (const ingredient of ingredientPriority) {
+            if (dishLower.includes(ingredient)) {
+              mainIngredient = ingredient;
+              break;
+            }
+          }
+          
+          // **🔥 SPECIAL HANDLING FOR SPECIFIC DISHES**
+          if (dishLower.includes('paneer')) {
+            mainIngredient = 'paneer';
+          } else if (dishLower.includes('chicken')) {
+            mainIngredient = 'chicken';
+          } else if (dishLower.includes('dal') || dishLower.includes('lentil')) {
+            mainIngredient = 'dal';
+          } else if (dishLower.includes('biryani') || dishLower.includes('rice')) {
+            mainIngredient = 'rice';
+          }
+          
+          console.log(`🔍 Extracted main ingredient: "${mainIngredient}" from dish: "${dishName}"`);
+          
+          if (mainIngredient) {
+            const ingredientResult = await callBackend('/api/search-by-ingredient', { 
+              ingredient: mainIngredient, 
+              offset: 0 
+            });
+            
+            if (ingredientResult.found && ingredientResult.recipes) {
+              // Add unique recipes that aren't already in suggestions
+              const additionalSuggestions = ingredientResult.recipes
+                .filter((recipe: string) => {
+                  const recipeLower = recipe.toLowerCase();
+                  return !suggestions.some(s => s.toLowerCase() === recipeLower) && 
+                         recipeLower !== dishName.toLowerCase() &&
+                         // **🔥 ENSURE SUGGESTIONS CONTAIN THE MAIN INGREDIENT**
+                         recipeLower.includes(mainIngredient.toLowerCase());
+                })
+                .slice(0, 5 - suggestions.length);
+              
+              suggestions.push(...additionalSuggestions);
+              console.log(`✅ Added ${additionalSuggestions.length} ingredient-based suggestions for "${mainIngredient}"`);
+            }
+          }
+        } catch (e) {
+          console.warn("⚠️ Could not fetch ingredient-based suggestions.", e);
+        }
+      }
+
+      // **🔥 BUILD FINAL RESPONSE WITH RECOMMENDATIONS**
+      let finalResponse = generateResult.recipe;
+      
+      if (suggestions.length > 0) {
+        finalResponse += `\n\n---\n\n## 🍽️ You Might Also Enjoy:\n\n`;
+        finalResponse += suggestions.map((suggestion, index) => 
+          `**${index + 1}.** ${suggestion}`
+        ).join('\n');
+        finalResponse += `\n\n*Want the recipe for any of these? Just ask me! 😊*`;
+      }
+
+      responseCache.set(cacheKey, finalResponse);
+      return NextResponse.json({ response: finalResponse, source: "ai_generated_with_suggestions", dishName });
     }
 
     // ✅ **Priority 4: Ingredient-based Search**

@@ -501,32 +501,141 @@ Format as a numbered list."""
 def related_recipes():
     data = request.get_json()
     dish_name = data.get('dish_name', '').lower()
-    dish_words = set(dish_name.split())
-    # Simple example: find recipes with at least one word in common (except the dish itself)
+    
     suggestions = []
-    for recipe in recipe_db:
-        title = recipe.get('title', '')
-        title_lower = title.lower()
-        if title_lower == dish_name:
-            continue
-        # Check if any word from the dish name is in the recipe title
-        if any(word in title_lower for word in dish_words):
-            suggestions.append(title)
-        if len(suggestions) >= 5:
+    
+    # **🔥 ENHANCED: Priority ingredient detection with better logic**
+    main_ingredients = {
+        'paneer': ['paneer', 'cottage cheese'],
+        'chicken': ['chicken'],
+        'mutton': ['mutton', 'lamb'],
+        'beef': ['beef'],
+        'fish': ['fish'],
+        'prawns': ['prawns', 'shrimp'],
+        'egg': ['egg'],
+        'dal': ['dal', 'lentil', 'lentils'],
+        'potato': ['potato', 'aloo'],
+        'rice': ['rice', 'biryani'],
+        'pasta': ['pasta', 'spaghetti', 'macaroni'],
+        'vegetables': ['vegetable', 'veggie', 'veg']
+    }
+    
+    # **🔥 FIND THE MAIN INGREDIENT WITH PRIORITY**
+    found_ingredient = None
+    found_keywords = []
+    
+    # First, check for specific high-priority ingredients
+    for ingredient, keywords in main_ingredients.items():
+        for keyword in keywords:
+            if keyword in dish_name:
+                found_ingredient = ingredient
+                found_keywords = keywords
+                break
+        if found_ingredient:
             break
-    # Fallback: if not enough, fill with random recipes (excluding the main dish and already suggested)
+    
+    print(f"🔍 For dish '{dish_name}', found main ingredient: '{found_ingredient}'")
+    
+    # **🔥 PRIORITY 1: Find recipes with same main ingredient**
+    if found_ingredient and found_keywords:
+        for recipe in recipe_db:
+            title = recipe.get('title', '').lower()
+            if title != dish_name:
+                # Check if recipe contains any of the ingredient keywords
+                if any(keyword in title for keyword in found_keywords):
+                    suggestions.append(recipe.get('title', ''))
+                    if len(suggestions) >= 5:
+                        break
+        
+        print(f"✅ Found {len(suggestions)} recipes with '{found_ingredient}'")
+    
+    # **🔥 PRIORITY 2: Same cuisine type (only if we have enough suggestions)**
     if len(suggestions) < 5:
-        others = [r.get('title', '') for r in recipe_db if r.get('title', '').lower() != dish_name and r.get('title', '') not in suggestions]
-        random.shuffle(others)
-        suggestions += others[:5 - len(suggestions)]
-    return jsonify({'suggestions': suggestions})
-    # for recipe in recipe_db:
-    #     title = recipe.get('title', '')
-    #     if title.lower() != dish_name and any(word in title.lower() for word in dish_name.split()):
-    #         suggestions.append(title)
-    #     if len(suggestions) >= 5:
-    #         break
-    # return jsonify({'suggestions': suggestions})
+        cuisine_keywords = {
+            'indian': ['masala', 'curry', 'biryani', 'dal', 'paneer', 'tandoori', 'roti', 'naan', 'tikka'],
+            'italian': ['pasta', 'pizza', 'spaghetti', 'lasagna', 'risotto', 'carbonara'],
+            'chinese': ['fried rice', 'noodles', 'stir fry', 'chow mein', 'sweet and sour'],
+            'mexican': ['tacos', 'burrito', 'quesadilla', 'enchilada', 'salsa'],
+            'american': ['burger', 'sandwich', 'bbq', 'grilled']
+        }
+        
+        dish_cuisine = None
+        for cuisine, keywords in cuisine_keywords.items():
+            if any(keyword in dish_name for keyword in keywords):
+                dish_cuisine = cuisine
+                break
+        
+        if dish_cuisine:
+            cuisine_keywords_list = cuisine_keywords[dish_cuisine]
+            for recipe in recipe_db:
+                title = recipe.get('title', '').lower()
+                if (title != dish_name and 
+                    title not in [s.lower() for s in suggestions] and
+                    any(keyword in title for keyword in cuisine_keywords_list)):
+                    suggestions.append(recipe.get('title', ''))
+                    if len(suggestions) >= 5:
+                        break
+            
+            print(f"✅ Added {cuisine} cuisine suggestions")
+    
+    # **🔥 PRIORITY 3: Cooking method matching**
+    if len(suggestions) < 5:
+        cooking_methods = ['grilled', 'fried', 'roasted', 'baked', 'steamed', 'curry', 'masala']
+        dish_method = None
+        
+        for method in cooking_methods:
+            if method in dish_name:
+                dish_method = method
+                break
+        
+        if dish_method:
+            for recipe in recipe_db:
+                title = recipe.get('title', '').lower()
+                if (title != dish_name and 
+                    title not in [s.lower() for s in suggestions] and
+                    dish_method in title):
+                    suggestions.append(recipe.get('title', ''))
+                    if len(suggestions) >= 5:
+                        break
+    
+    # **🔥 PRIORITY 4: Fallback to popular dishes of same type**
+    if len(suggestions) < 5:
+        popular_by_ingredient = {
+            'paneer': ['Paneer Makhani', 'Palak Paneer', 'Paneer Tikka', 'Shahi Paneer', 'Kadai Paneer'],
+            'chicken': ['Chicken Tikka Masala', 'Butter Chicken', 'Chicken Biryani', 'Grilled Chicken', 'Chicken Curry'],
+            'dal': ['Dal Tadka', 'Dal Makhani', 'Chana Dal', 'Moong Dal', 'Rajma'],
+            'rice': ['Vegetable Biryani', 'Fried Rice', 'Jeera Rice', 'Coconut Rice', 'Lemon Rice']
+        }
+        
+        if found_ingredient and found_ingredient in popular_by_ingredient:
+            popular_dishes = popular_by_ingredient[found_ingredient]
+            for dish in popular_dishes:
+                if (dish.lower() != dish_name and 
+                    dish not in suggestions):
+                    suggestions.append(dish)
+                    if len(suggestions) >= 5:
+                        break
+    
+    # **🔥 REMOVE DUPLICATES AND LIMIT**
+    unique_suggestions = []
+    seen = set()
+    for suggestion in suggestions:
+        suggestion_lower = suggestion.lower()
+        if suggestion_lower not in seen and suggestion_lower != dish_name:
+            unique_suggestions.append(suggestion)
+            seen.add(suggestion_lower)
+            if len(unique_suggestions) >= 5:
+                break
+    
+    print(f"🎯 Final suggestions for '{dish_name}': {unique_suggestions}")
+    
+    return jsonify({
+        'success': True,
+        'dish_name': dish_name,
+        'main_ingredient_detected': found_ingredient,
+        'suggestions': unique_suggestions,
+        'algorithm_used': 'enhanced_ingredient_priority'
+    })
 
 @app.route('/api/classify-dietary', methods=['POST'])
 def classify_dietary_flask():
