@@ -550,16 +550,18 @@ ${ingredientResult.recipes.map((title: string, idx: number) => `**${idx + 1}.** 
         } else {
           // **🔥 FALLBACK: Generate AI-based ingredient recipes**
           try {
-            const aiRecipeResult = await callBackend('/api/generate-recipe-list', { 
-              ingredient 
+            // ✅ FIX: Use existing endpoint instead of non-existent one
+            const aiRecipeResult = await callBackend('/api/generate-recipe', { 
+              dish_name: `${ingredient} recipes`,
+              user_query: `Show me different recipes using ${ingredient}`
             });
             
-            if (aiRecipeResult.suggestions) {
+            if (aiRecipeResult.recipe) {
               const response = `# 🥘 Creative ${ingredient.charAt(0).toUpperCase() + ingredient.slice(1)} Recipe Ideas
 
-I couldn't find recipes in my database, but here are some creative ideas:
+I couldn't find specific recipes in my database, but here are some ideas:
 
-${aiRecipeResult.suggestions}
+${aiRecipeResult.recipe}
 
 **Want a specific recipe?** Just ask me "How to make [dish name]" and I'll provide detailed instructions! 😊`;
               
