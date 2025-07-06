@@ -1,17 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+// ✅ Backend URL configuration for production
+const BACKEND_URL = process.env.NODE_ENV === 'production' 
+  ? process.env.NEXT_PUBLIC_BACKEND_URL || 'https://your-render-backend.onrender.com'
+  : 'http://localhost:5000';
+
+console.log('🔗 Backend URL:', BACKEND_URL);
+console.log('🌍 Environment:', process.env.NODE_ENV);
+
 const responseCache = new Map();
 
+// Enhanced backend call with better error handling
 async function callBackend(endpoint: string, data: any): Promise<any> {
   try {
+    console.log(`🔗 Calling: ${BACKEND_URL}${endpoint}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify(data),
+      signal: controller.signal
     });
 
-    if (!response.ok) throw new Error(`Backend error: ${response.status}`);
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      throw new Error(`Backend error: ${response.status} - ${response.statusText}`);
+    }
+    
     return await response.json();
   } catch (error) {
     console.error(`❌ Backend call failed for ${endpoint}:`, error);

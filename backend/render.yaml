@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt
-    startCommand: python chatbot.py
+    startCommand: gunicorn --bind 0.0.0.0:$PORT chatbot:app
     envVars:
       - key: GEMINI_API_KEY
         sync: false
