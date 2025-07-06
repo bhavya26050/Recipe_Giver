@@ -866,30 +866,26 @@ def root():
     })
 
 if __name__ == '__main__':
-    print("🚀 Starting Recipe Chatbot Server...")
+    port = int(os.environ.get('PORT', 5000))
     
-    # Test database loading
-    if len(recipe_db) > 0:
-        print(f"✅ Database loaded successfully: {len(recipe_db)} recipes")
+    # Configure for production
+    if os.environ.get('FLASK_ENV') == 'production':
+        app.config['DEBUG'] = False
+        host = '0.0.0.0'
+        # Update CORS for production - add your Vercel URL here after deployment
+        CORS(app, origins=[
+            "http://localhost:3000",  # Development
+            "https://*.vercel.app",   # All Vercel apps
+            "https://your-vercel-app.vercel.app"  # Replace with actual URL
+        ])
+        print(f"🚀 Production mode on {host}:{port}")
     else:
-        print("⚠️ Warning: No recipes loaded from database")
+        app.config['DEBUG'] = True
+        host = 'localhost'
+        CORS(app, origins=["http://localhost:3000"])
+        print(f"🔧 Development mode on {host}:{port}")
     
-    # Test AI model
-    if model:
-        print("✅ AI Model: Available")
-        try:
-            # Test the model with a simple query
-            test_response = model.generate_content("Hello")
-            print("✅ AI Model test successful")
-        except Exception as e:
-            print(f"⚠️ AI Model test failed: {e}")
-    else:
-        print("❌ AI Model: Not Available")
+    print(f"🌍 Environment: {os.environ.get('FLASK_ENV', 'development')}")
+    print(f"🔗 CORS configured for: {app.config.get('origins', 'localhost')}")
     
-    # Test health endpoint
-    try:
-        print("🔧 Starting Flask server on http://0.0.0.0:5000")
-        print("📍 Health check available at: http://localhost:5000/api/health")
-        app.run(debug=True, host='0.0.0.0', port=5000)
-    except Exception as e:
-        print(f"❌ Failed to start server: {e}")
+    app.run(host=host, port=port, debug=app.config['DEBUG'])
