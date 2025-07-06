@@ -1,15 +1,16 @@
 'use client';
 
-import { MouseEvent, SetStateAction, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from '@/firebase/firebaseConfig';
-import { saveConversation } from '@/firebase/history'; // ✅ Add this import
+import { auth, db } from '@/firebase/firebaseConfig';
+import { saveConversation } from '@/firebase/history';
 import { useRouter } from 'next/navigation';
-import { LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, ThumbsUp, ThumbsDown, Clock, 
-         PlusCircle, Mic, MicOff, Edit, Check, AlertCircle, BookOpen, MessageSquare, 
-         Sun, Moon, Star, Heart, Coffee, Search, Settings, Sparkles, Calendar } from 'lucide-react';
-import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/firebase/firebaseConfig";
+import { 
+  LogOut, UserCircle, Send, Trash2, ChefHat, Menu, X, 
+  PlusCircle, Mic, MicOff, MessageSquare, Sun, Moon, 
+  Star, Calendar, Coffee, Sparkles
+} from 'lucide-react';
+import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 
 // Global declaration for speech recognition
 declare global {
@@ -18,39 +19,143 @@ declare global {
   }
 }
 
+interface Message {
+  from: 'user' | 'bot';
+  text: string;
+  id: number;
+}
+
+interface Conversation {
+  id: string;
+  title: string;
+  lastMessage: string;
+  messageCount: number;
+  lastUpdated: any;
+  messages: Message[];
+}
+
+interface UserProfile {
+  displayName: string;
+  email: string;
+  photoURL: string;
+  uid: string;
+  lastUpdated: number;
+}
+
 export default function ChatPage() {
-  // ✅ ALL STATE DECLARATIONS
-  const [messages, setMessages] = useState([
-    { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
-  ]);
+  // Core state
+  const [messages, setMessages] = useState<Message[]>(
+    [
+      { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+    ]
+  );
   const [input, setInput] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // User profile state
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    displayName: '',
+    email: '',
+    photoURL: '',
+    uid: '',
+    lastUpdated: 0
+  });
+
+  // UI state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showFeedback, setShowFeedback] = useState<number | null>(null);
-  const [previousChats, setPreviousChats] = useState<any[]>([]);
-  const [isRecording, setIsRecording] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
-  const [editedText, setEditedText] = useState('');
-  const [speechRecognition, setSpeechRecognition] = useState<any>(null);
-  const [currentChatId, setCurrentChatId] = useState<number | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(true);
-  const [hoveredMessage, setHoveredMessage] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
-  const [lastIngredient, setLastIngredient] = useState('');
-  const [ingredientOffset, setIngredientOffset] = useState(0);
-  const [relatedSuggestions, setRelatedSuggestions] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  
+  // Chat history
+  const [previousChats, setPreviousChats] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  
+  // Voice recording
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null);
+
+  // Image loading state
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // ✅ THEME DETECTION
+  // Helper function to handle image loading errors
+  const handleImageError = (imageUrl: string, location: string) => {
+    console.warn(`Profile image failed to load at ${location}:`, imageUrl);
+    setImageLoadErrors(prev => new Set(prev).add(imageUrl));
+  };
+
+  // Check if image should be shown (not in error state)
+  const shouldShowImage = (imageUrl: string) => {
+    return imageUrl && !imageLoadErrors.has(imageUrl);
+  };
+
+  // Enhanced Profile Avatar Component
+  const ProfileAvatar = ({ 
+    size = 'md', 
+    location = 'unknown',
+    className = '' 
+  }: { 
+    size?: 'sm' | 'md' | 'lg' | 'xl'; 
+    location?: string;
+    className?: string;
+  }) => {
+    const sizeClasses = {
+      sm: 'w-8 h-8',
+      md: 'w-10 h-10', 
+      lg: 'w-12 h-12',
+      xl: 'w-20 h-20'
+    };
+
+    const iconSizes = {
+      sm: 'w-4 h-4',
+      md: 'w-5 h-5',
+      lg: 'w-7 h-7', 
+      xl: 'w-10 h-10'
+    };
+
+    return (
+      <div className={`${sizeClasses[size]} rounded-full flex items-center justify-center overflow-hidden ${className}`}>
+        {shouldShowImage(userProfile.photoURL) ? (
+          <img 
+            src={userProfile.photoURL}
+            alt="Profile"
+            className="w-full h-full object-cover rounded-full"
+            onError={(e) => {
+              handleImageError(userProfile.photoURL, location);
+              e.currentTarget.style.display = 'none';
+            }}
+            onLoad={() => {
+              // Remove from error set if it loads successfully
+              setImageLoadErrors(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(userProfile.photoURL);
+                return newSet;
+              });
+            }}
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className={`w-full h-full flex items-center justify-center ${
+            isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'
+          }`}>
+            <UserCircle className={`${iconSizes[size]} ${
+              isDarkMode ? 'text-emerald-400' : 'text-emerald-600'
+            }`} />
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Theme detection and management
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -64,7 +169,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  // ✅ APPLY THEME STYLES
+  // Apply theme styles
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const root = document.documentElement;
@@ -78,10 +183,10 @@ export default function ChatPage() {
     }
   }, [isDarkMode]);
 
-  // ✅ SIDEBAR CLICK OUTSIDE HANDLER
+  // Sidebar click outside handler
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const handleClickOutside = (event: MouseEvent) => {
+      const handleClickOutside = (event: any) => {
         const sidebarElement = document.getElementById('sidebar');
         const menuButton = document.getElementById('menu-button');
         
@@ -92,31 +197,28 @@ export default function ChatPage() {
         }
       };
       
-      document.addEventListener('mousedown', handleClickOutside as any);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside as any);
-      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [isSidebarOpen]);
 
-  // ✅ SPEECH RECOGNITION SETUP
+  // Speech recognition setup
   useEffect(() => {
     if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition as any;
+      const SpeechRecognition = window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       
-      recognition.onresult = (event: { results: Iterable<unknown> | ArrayLike<unknown>; }) => {
+      recognition.onresult = (event: any) => {
         const transcript = Array.from(event.results)
-          .map(result => (result as SpeechRecognitionResult)[0])
-          .map(result => (result as SpeechRecognitionAlternative).transcript)
+          .map((result: any) => result[0])
+          .map((result: any) => result.transcript)
           .join('');
-        
         setInput(transcript);
       };
       
-      recognition.onerror = (event: { error: any; }) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
         setIsRecording(false);
       };
@@ -125,196 +227,77 @@ export default function ChatPage() {
     }
   }, []);
 
-  // ✅ FIREBASE AUTH & HISTORY LOADING
+  // Firebase auth and history loading
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        // Clear all user data when logging out
+        setUserEmail('');
+        setUserProfile({
+          displayName: '',
+          email: '',
+          photoURL: '',
+          uid: '',
+          lastUpdated: 0
+        });
+        setPreviousChats([]);
+        setCurrentConversationId(null);
+        setMessages([
+          { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+        ]);
+        setImageLoadErrors(new Set()); // Clear image errors
         router.push('/login');
       } else {
+        // Set new user data
         setUserEmail(user.email || '');
         setIsLoading(false);
-
-        // Load conversation history
-        try {
-          const conversationsRef = collection(db, 'users', user.uid, 'conversations');
-          const q = query(conversationsRef, orderBy('lastUpdated', 'desc'));
-          const querySnapshot = await getDocs(q);
-
-          const conversations = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            title: doc.data().title || 'Untitled Conversation',
-            lastMessage: doc.data().lastMessage || '',
-            messageCount: doc.data().messageCount || 0,
-            lastUpdated: doc.data().lastUpdated,
-            messages: doc.data().messages || []
-          }));
-
-          setPreviousChats(conversations);
-        } catch (error) {
-          console.error('Error loading conversation history:', error);
-        }
+        
+        // Update user profile with new data
+        const newProfile: UserProfile = {
+          displayName: user.displayName || '',
+          email: user.email || '',
+          photoURL: user.photoURL || '',
+          uid: user.uid,
+          lastUpdated: Date.now()
+        };
+        
+        setUserProfile(newProfile);
+        
+        // Clear image errors for new user
+        setImageLoadErrors(new Set());
+        
+        // Clear previous chat data before loading new user's data
+        setPreviousChats([]);
+        setCurrentConversationId(null);
+        
+        // Reset messages to welcome message
+        setMessages([
+          { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+        ]);
+        
+        // Load conversation history for the new user
+        await loadConversationHistory(user.uid);
+        
+        console.log('✅ User logged in:', {
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          uid: user.uid
+        });
       }
     });
+    
     return () => unsubscribe();
   }, [router]);
 
-  // ✅ AUTO SCROLL
+  // Auto scroll to bottom
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isTyping]);
 
-  // ✅ HELPER FUNCTIONS
-  function renderFormattedText(text: string) {
-    const isDark = isDarkMode;
-    
-    let formatted = text
-      .replace(/^### (.+)$/gm, `<h3 class="text-lg font-semibold mt-4 mb-2 ${isDark ? 'text-emerald-400 border-emerald-600/30' : 'text-emerald-700 border-emerald-200'} border-b pb-1">$1</h3>`)
-      .replace(/^## (.+)$/gm, `<h2 class="text-xl font-bold mt-4 mb-3 ${isDark ? 'text-emerald-300 border-emerald-500/30' : 'text-emerald-800 border-emerald-300'} border-b-2 pb-2">$1</h2>`)
-      .replace(/^• (.+)$/gm, `<li class="ml-4 mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}">$1</li>`)
-      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, `<li class="ml-4 mb-3 font-medium"><span class="${isDark ? 'text-emerald-400' : 'text-emerald-600'} font-bold">$1.</span> <span class="${isDark ? 'text-gray-300' : 'text-gray-700'}">$2</span></li>`)
-      .replace(/\*\*(.+?)\*\*/g, `<strong class="font-semibold ${isDark ? 'text-emerald-300' : 'text-emerald-700'}">$1</strong>`)
-      .replace(/\*(.+?)\*/g, `<em class="italic ${isDark ? 'text-gray-400' : 'text-gray-600'}">$1</em>`)
-      .replace(/\n\n/g, '</p><p class="mb-3">')
-      .replace(/\n/g, '<br>');
-    
-    formatted = `<div class="prose max-w-none ${isDark ? 'prose-invert' : 'prose-emerald'}"><p class="mb-3 ${isDark ? 'text-gray-300' : 'text-gray-800'}">${formatted}</p></div>`;
-    
-    formatted = formatted
-      .replace(/<p class="mb-3[^"]*"><li/g, '<ul class="list-none space-y-2 mb-4"><li')
-      .replace(/<\/li><\/p>/g, '</li></ul>')
-      .replace(/<\/li><br><li/g, '</li><li');
-    
-    return formatted;
-  }
-
-  // ✅ MISSING FUNCTIONS - ADD THESE
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const toggleVoiceRecording = () => {
-    if (!speechRecognition) {
-      alert('Your browser does not support speech recognition');
-      return;
-    }
-    
-    if (isRecording) {
-      speechRecognition.stop();
-      setIsRecording(false);
-    } else {
-      speechRecognition.start();
-      setIsRecording(true);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
-
-  // ✅ QUICK ACTION HANDLERS - Fixed to send proper queries
-  const handleQuickAction = async (message: string) => {
-    setInput(message);
-    // Auto-send the message
-    setTimeout(() => {
-      handleSend(message);
-    }, 100);
-  };
-
-  // ✅ MAIN SEND FUNCTION - Fixed
-  const handleSend = async (quickMessage?: string) => {
-    const messageToSend = quickMessage || input.trim();
-    if (!messageToSend) return;
-    
-    const messageId = Date.now();
-
-    setMessages(prev => [...prev, { from: 'user', text: messageToSend, id: messageId }]);
-    setInput('');
-    setIsTyping(true);
-    
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          message: messageToSend,
-          history: messages.slice(-5)
-        }),
-      });
-
-      setIsTyping(false);
-      
-      if (!response.ok) {
-        setMessages(prev => [
-          ...prev,
-          { 
-            from: 'bot', 
-            text: `Sorry, I'm having trouble right now. Please try again! 🍳`, 
-            id: Date.now() 
-          }
-        ]);
-        return;
-      }
-      
-      const data = await response.json();
-      const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
-
-      const updatedMessages = [...messages, 
-        { from: 'user', text: messageToSend, id: messageId },
-        { from: 'bot', text: recipeResponse, id: Date.now() }
-      ];
-
-      setMessages(updatedMessages);
-      
-      // ✅ Fix: Save entire conversation, not individual messages
-      const user = auth.currentUser;
-      if (user) {
-        try {
-          const conversationId = await saveConversation(
-            user.uid, 
-            updatedMessages,
-            currentConversationId // Pass current conversation ID to update existing one
-          );
-          
-          // Set the conversation ID if this is a new conversation
-          if (!currentConversationId && conversationId) {
-            setCurrentConversationId(conversationId);
-          }
-          
-          // Reload conversation history
-          await loadConversationHistory(user.uid);
-        } catch (error) {
-          console.error('Error saving conversation:', error);
-        }
-      }
-      
-    } catch (error) {
-      setIsTyping(false);
-      setMessages(prev => [
-        ...prev,
-        { 
-          from: 'bot', 
-          text: 'Something went wrong! Please try again. 🍳', 
-          id: Date.now() 
-        }
-      ]);
-      console.error('Error calling chat API:', error);
-    }
-  };
-
-  // Update load conversation history function
+  // Load conversation history
   const loadConversationHistory = async (userId: string) => {
     try {
       const conversationsRef = collection(db, 'users', userId, 'conversations');
@@ -334,37 +317,164 @@ export default function ChatPage() {
       });
 
       setPreviousChats(conversations);
-      console.log("✅ Loaded conversation history:", conversations.length, "conversations");
     } catch (error) {
       console.error('Error loading conversation history:', error);
     }
   };
 
-  // Update load conversation into chat
-  const loadConversationIntoChat = (conversation: any) => {
-    if (!conversation.messages || conversation.messages.length === 0) {
-      console.warn("Invalid conversation data:", conversation);
+  // Format text with markdown-like styling
+  const renderFormattedText = (text: string) => {
+    let formatted = text
+      .replace(/^### (.+)$/gm, `<h3 class="text-lg font-semibold mt-4 mb-2 ${isDarkMode ? 'text-emerald-400 border-emerald-600/30' : 'text-emerald-700 border-emerald-200'} border-b pb-1">$1</h3>`)
+      .replace(/^## (.+)$/gm, `<h2 class="text-xl font-bold mt-4 mb-3 ${isDarkMode ? 'text-emerald-300 border-emerald-500/30' : 'text-emerald-800 border-emerald-300'} border-b-2 pb-2">$1</h2>`)
+      .replace(/^• (.+)$/gm, `<li class="ml-4 mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}">$1</li>`)
+      .replace(/^\*\*(\d+)\.\*\* (.+)$/gm, `<li class="ml-4 mb-3 font-medium"><span class="${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'} font-bold">$1.</span> <span class="${isDarkMode ? 'text-gray-300' : 'text-gray-700'}">$2</span></li>`)
+      .replace(/\*\*(.+?)\*\*/g, `<strong class="font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}">$1</strong>`)
+      .replace(/\*(.+?)\*/g, `<em class="italic ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}">$1</em>`)
+      .replace(/\n\n/g, '</p><p class="mb-3">')
+      .replace(/\n/g, '<br>');
+    
+    formatted = `<div class="prose max-w-none ${isDarkMode ? 'prose-invert' : 'prose-emerald'}"><p class="mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}">${formatted}</p></div>`;
+    
+    return formatted
+      .replace(/<p class="mb-3[^"]*"><li/g, '<ul class="list-none space-y-2 mb-4"><li')
+      .replace(/<\/li><\/p>/g, '</li></ul>')
+      .replace(/<\/li><br><li/g, '</li><li');
+  };
+
+  // Handle sending messages
+  const handleSend = async (quickMessage?: string) => {
+    const messageToSend = quickMessage || input.trim();
+    if (!messageToSend) return;
+    
+    const messageId = Date.now();
+    setMessages(prev => [...prev, { from: 'user', text: messageToSend, id: messageId }]);
+    setInput('');
+    setIsTyping(true);
+    setShowQuickActions(false);
+    
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: messageToSend,
+          history: messages.slice(-5)
+        }),
+      });
+
+      setIsTyping(false);
+      
+      if (!response.ok) {
+        setMessages(prev => [
+          ...prev,
+          { from: 'bot', text: `Sorry, I'm having trouble right now. Please try again! 🍳`, id: Date.now() }
+        ]);
+        return;
+      }
+      
+      const data = await response.json();
+      const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
+
+      const updatedMessages = [...messages, 
+        { from: 'user', text: messageToSend, id: messageId },
+        { from: 'bot', text: recipeResponse, id: Date.now() }
+      ];
+
+      setMessages(updatedMessages);
+      
+      // Save conversation
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const conversationId = await saveConversation(
+            user.uid, 
+            updatedMessages,
+            currentConversationId
+          );
+          
+          if (!currentConversationId && conversationId) {
+            setCurrentConversationId(conversationId);
+          }
+          
+          await loadConversationHistory(user.uid);
+        } catch (error) {
+          console.error('Error saving conversation:', error);
+        }
+      }
+      
+    } catch (error) {
+      setIsTyping(false);
+      setMessages(prev => [
+        ...prev,
+        { from: 'bot', text: 'Something went wrong! Please try again. 🍳', id: Date.now() }
+      ]);
+      console.error('Error calling chat API:', error);
+    }
+  };
+
+  // Quick action handlers
+  const handleQuickAction = (message: string) => {
+    setInput(message);
+    setTimeout(() => handleSend(message), 100);
+  };
+
+  // UI handlers
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  
+  const toggleVoiceRecording = () => {
+    if (!speechRecognition) {
+      alert('Your browser does not support speech recognition');
       return;
     }
     
-    // Convert conversation messages back to chat format
-    const chatMessages = conversation.messages.map((msg: any, index: number) => ({
-      from: msg.from,
-      text: msg.text,
-      id: Date.now() + index
-    }));
-    
-    setMessages(chatMessages);
-    setCurrentConversationId(conversation.id);
-    setIsSidebarOpen(false);
+    if (isRecording) {
+      speechRecognition.stop();
+      setIsRecording(false);
+    } else {
+      speechRecognition.start();
+      setIsRecording(true);
+    }
   };
 
-  // Update clear chat to start new conversation
+  const handleLogout = async () => {
+    try {
+      // Clear all user data immediately
+      setUserProfile({
+        displayName: '',
+        email: '',
+        photoURL: '',
+        uid: '',
+        lastUpdated: 0
+      });
+      setUserEmail('');
+      setPreviousChats([]);
+      setCurrentConversationId(null);
+      setMessages([
+        { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+      ]);
+      setImageLoadErrors(new Set()); // Clear image errors
+      
+      // Sign out from Firebase
+      await signOut(auth);
+      
+      console.log('✅ User logged out successfully');
+      router.push('/login');
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+    }
+  };
+
   const clearChat = () => {
     setMessages([
       { from: 'bot', text: 'Chat cleared! How can I help you today?', id: Date.now() }
     ]);
-    setCurrentConversationId(null); // Start new conversation
+    setCurrentConversationId(null);
+    setShowQuickActions(true);
     
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
@@ -377,7 +487,24 @@ export default function ChatPage() {
     }, 100);
   };
 
-  // Update delete conversation function
+  const loadConversationIntoChat = (conversation: Conversation) => {
+    if (!conversation.messages || conversation.messages.length === 0) {
+      console.warn("Invalid conversation data:", conversation);
+      return;
+    }
+    
+    const chatMessages = conversation.messages.map((msg: any, index: number) => ({
+      from: msg.from,
+      text: msg.text,
+      id: Date.now() + index
+    }));
+    
+    setMessages(chatMessages);
+    setCurrentConversationId(conversation.id);
+    setIsSidebarOpen(false);
+    setShowQuickActions(false);
+  };
+
   const handleDeleteConversation = async (conversationId: string) => {
     setPreviousChats(prev => prev.filter(conv => conv.id !== conversationId));
 
@@ -392,7 +519,61 @@ export default function ChatPage() {
     }
   };
 
-  // Show loading screen while checking authentication
+  // Components
+  const QuickActions = () => (
+    <div className={`mb-6 p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
+      isDarkMode ? 'border-emerald-600/30 bg-slate-800/50' : 'border-emerald-300/50 bg-emerald-50/50'
+    } backdrop-blur-sm`}>
+      <div className="flex items-center gap-2 mb-3">
+        <Sparkles className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+        <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Quick Actions</h3>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/*
+          <button
+            onClick={() => handleQuickAction('Generate a healthy weekly meal plan for 2 people')}
+            className="p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm font-medium hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <Calendar className="w-4 h-4 mx-auto mb-1" />
+            Meal Plan
+          </button>
+          <button
+            onClick={() => handleQuickAction('Show me healthy and quick breakfast recipes for busy mornings')}
+            className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <Coffee className="w-4 h-4 mx-auto mb-1" />
+            Breakfast
+          </button>
+          <button
+            onClick={() => handleQuickAction('What are some nutritious and easy lunch ideas for work?')}
+            className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <Sun className="w-4 h-4 mx-auto mb-1" />
+            Lunch
+          </button>
+          <button
+            onClick={() => handleQuickAction('Suggest some delicious dinner recipes for tonight with family')}
+            className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+          >
+            <Moon className="w-4 h-4 mx-auto mb-1" />
+            Dinner
+          </button>
+        */}
+      </div>
+    </div>
+  );
+
+  const PremiumBadge = () => (
+    <div className={`px-2 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r ${
+      isDarkMode 
+        ? 'from-amber-500/20 to-yellow-500/20 text-amber-300 ring-1 ring-amber-500/30' 
+        : 'from-amber-100 to-yellow-100 text-amber-700 ring-1 ring-amber-300'
+    }`}>
+      ✨ Premium
+    </div>
+  );
+
+  // Loading screen
   if (isLoading) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-gradient-to-br from-emerald-50 to-green-50">
@@ -403,52 +584,6 @@ export default function ChatPage() {
       </div>
     );
   }
-
-  // ✅ FIXED QUICK ACTIONS COMPONENT
-  const QuickActions = () => (
-    <div className={`mb-6 p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${
-      isDarkMode 
-        ? 'border-emerald-600/30 bg-slate-800/50' 
-        : 'border-emerald-300/50 bg-emerald-50/50'
-    } backdrop-blur-sm`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className={`w-5 h-5 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-        <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-          Quick Actions
-        </h3>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <button
-          onClick={() => handleQuickAction('Generate a healthy weekly meal plan for 2 people')}
-          className="p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm font-medium hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <Calendar className="w-4 h-4 mx-auto mb-1" />
-          Meal Plan
-        </button>
-        <button
-          onClick={() => handleQuickAction('Show me healthy and quick breakfast recipes for busy mornings')}
-          className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 text-white text-sm font-medium hover:from-orange-600 hover:to-red-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <Coffee className="w-4 h-4 mx-auto mb-1" />
-          Breakfast
-        </button>
-        <button
-          onClick={() => handleQuickAction('What are some nutritious and easy lunch ideas for work?')}
-          className="p-3 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-medium hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <Sun className="w-4 h-4 mx-auto mb-1" />
-          Lunch
-        </button>
-        <button
-          onClick={() => handleQuickAction('Suggest some delicious dinner recipes for tonight with family')}
-          className="p-3 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-medium hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          <Moon className="w-4 h-4 mx-auto mb-1" />
-          Dinner
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className={`h-screen w-full flex overflow-hidden transition-all duration-300 ${
@@ -465,15 +600,13 @@ export default function ChatPage() {
         />
       )}
 
-      {/* ✅ FIXED SIDEBAR */}
+      {/* Sidebar */}
       <div 
         id="sidebar"
         className={`md:translate-x-0 fixed md:relative left-0 top-0 h-full w-80 transform transition-transform duration-300 ease-in-out z-30 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } ${
-          isDarkMode 
-            ? 'bg-slate-900/95 border-slate-700/50' 
-            : 'bg-white/95 border-gray-200/50'
+          isDarkMode ? 'bg-slate-900/95 border-slate-700/50' : 'bg-white/95 border-gray-200/50'
         } backdrop-blur-xl border-r flex flex-col shadow-2xl`}
       >
         {/* Header */}
@@ -484,12 +617,8 @@ export default function ChatPage() {
                 <ChefHat className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
               </div>
               <div>
-                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  NutriChef
-                </h2>
-                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Your AI Recipe Assistant
-                </p>
+                <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>NutriChef</h2>
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Your AI Recipe Assistant</p>
               </div>
             </div>
             
@@ -519,21 +648,17 @@ export default function ChatPage() {
           </button>
         </div>
 
-        {/* ✅ FIXED CHAT HISTORY SECTION */}
+        {/* Chat History */}
         <div className="flex-1 overflow-hidden flex flex-col">
           <div className="px-4 py-2 flex-shrink-0">
             <h3 className={`text-xs font-semibold uppercase tracking-wide ${
               isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
-            }`}>
-              Chat History
-            </h3>
+            }`}>Chat History</h3>
           </div>
           
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             {previousChats.length === 0 ? (
-              <div className={`text-sm text-center py-8 ${
-                isDarkMode ? 'text-gray-500' : 'text-gray-400'
-              }`}>
+              <div className={`text-sm text-center py-8 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                 No chat history yet
               </div>
             ) : (
@@ -580,9 +705,7 @@ export default function ChatPage() {
                           handleDeleteConversation(conversation.id);
                         }}
                         className={`opacity-0 group-hover:opacity-100 p-1 rounded transition-all ${
-                          isDarkMode 
-                            ? 'hover:bg-red-900/30 text-red-400' 
-                            : 'hover:bg-red-100 text-red-600'
+                          isDarkMode ? 'hover:bg-red-900/30 text-red-400' : 'hover:bg-red-100 text-red-600'
                         }`}
                         title="Delete conversation"
                       >
@@ -596,21 +719,25 @@ export default function ChatPage() {
           </div>
         </div>
         
-        {/* ✅ FIXED USER PROFILE */}
+        {/* User Profile */}
         <div className={`p-4 border-t ${isDarkMode ? 'border-slate-700/50' : 'border-gray-200/50'} flex-shrink-0`}>
           <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
             <div className="flex items-center gap-3 mb-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                isDarkMode ? 'bg-emerald-600/20' : 'bg-emerald-100'
-              }`}>
-                <UserCircle className={`w-6 h-6 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-              </div>
+              <ProfileAvatar 
+                size="lg"
+                location="sidebar"
+                className={isDarkMode ? 'bg-emerald-600/20 ring-2 ring-emerald-500/30' : 'bg-emerald-100 ring-2 ring-emerald-300/50'}
+              />
+              
               <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {userEmail || 'Loading...'}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className={`text-sm font-medium truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {userProfile.displayName || userProfile.email || 'Loading...'}
+                  </p>
+                  <PremiumBadge />
+                </div>
                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Premium User
+                  {userProfile.email || 'Google Account'}
                 </p>
               </div>
             </div>
@@ -634,9 +761,7 @@ export default function ChatPage() {
       <div className="flex-1 flex flex-col relative min-w-0">
         {/* Top Bar */}
         <div className={`h-16 ${
-          isDarkMode 
-            ? 'bg-slate-900/80 border-slate-700/50' 
-            : 'bg-white/80 border-gray-200/50'
+          isDarkMode ? 'bg-slate-900/80 border-slate-700/50' : 'bg-white/80 border-gray-200/50'
         } backdrop-blur-xl border-b flex items-center px-6 z-10 flex-shrink-0`}>
           <button 
             id="menu-button"
@@ -661,9 +786,26 @@ export default function ChatPage() {
               </p>
             </div>
           </div>
-          
-          {/* Theme Toggle */}
+
           <div className="ml-auto flex items-center gap-3">
+            {/* User Profile Preview */}
+            <div className="hidden md:flex items-center gap-2">
+              <ProfileAvatar 
+                size="sm"
+                location="topbar"
+                className={isDarkMode ? 'ring-1 ring-emerald-500/30' : 'ring-1 ring-emerald-300/50'}
+              />
+              <div className="text-right">
+                <p className={`text-xs font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {userProfile.displayName?.split(' ')[0] || 'User'}
+                </p>
+                <p className={`text-xs ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                  Premium ✨
+                </p>
+              </div>
+            </div>
+
+            {/* Theme Toggle */}
             <button 
               onClick={() => setIsDarkMode(!isDarkMode)}
               className={`p-3 rounded-xl transition-all ${
@@ -685,9 +827,8 @@ export default function ChatPage() {
             isDarkMode ? 'bg-slate-900/50' : 'bg-white/50'
           } backdrop-blur-sm`}>
             <div className="max-w-4xl mx-auto">
-              {/* Quick Actions - only show on first message */}
-              
-              {messages.length === 1 && <QuickActions />}
+              {/* Show quick actions only for new chats */}
+              {showQuickActions && messages.length === 1 && <QuickActions />}
               
               {messages.map((msg, idx) => (
                 <div
@@ -698,19 +839,24 @@ export default function ChatPage() {
                     msg.from === 'user' ? 'flex-row-reverse' : 'flex-row'
                   } items-start gap-4`}>
                     {/* Avatar */}
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-lg ${
+                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-lg overflow-hidden ${
                       msg.from === 'bot' 
                         ? isDarkMode 
                           ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
                           : 'bg-gradient-to-br from-emerald-400 to-green-500'
                         : isDarkMode
-                          ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
-                          : 'bg-gradient-to-br from-blue-400 to-cyan-500'
+                          ? 'bg-gradient-to-br from-blue-500 to-cyan-600 ring-2 ring-blue-400/30'
+                          : 'bg-gradient-to-br from-blue-400 to-cyan-500 ring-2 ring-blue-300/30'
                     } text-white`}>
-                      {msg.from === 'bot' ? 
-                        <ChefHat className="w-5 h-5" /> : 
-                        <UserCircle className="w-5 h-5" />
-                      }
+                      {msg.from === 'bot' ? (
+                        <ChefHat className="w-5 h-5" />
+                      ) : (
+                        <ProfileAvatar 
+                          size="md"
+                          location="message"
+                          className="bg-transparent"
+                        />
+                      )}
                     </div>
                     
                     {/* Message Content */}
@@ -776,7 +922,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* ✅ FIXED INPUT AREA */}
+          {/* Input Area */}
           <div className={`p-6 ${
             isDarkMode 
               ? 'bg-slate-900/80 border-slate-700/50' 
@@ -804,7 +950,7 @@ export default function ChatPage() {
                   disabled={isRecording}
                 />
 
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center ga  p-2 pb-9">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <button 
                     onClick={toggleVoiceRecording} 
                     className={`p-2.5 rounded-xl transition-all ${
@@ -853,6 +999,41 @@ export default function ChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className={`max-w-md w-full rounded-2xl p-6 ${
+            isDarkMode ? 'bg-slate-800 border border-slate-700' : 'bg-white border border-gray-200'
+          }`}>
+            <div className="text-center">
+              <ProfileAvatar 
+                size="xl"
+                location="modal"
+                className="mx-auto mb-4"
+              />
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {userProfile.displayName || 'Premium User'}
+              </h3>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {userProfile.email}
+              </p>
+              <div className="mt-2">
+                <PremiumBadge />
+              </div>
+              
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className={`mt-4 px-4 py-2 rounded-lg ${
+                  isDarkMode ? 'bg-slate-700 text-white' : 'bg-gray-100 text-gray-900'
+                }`}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
