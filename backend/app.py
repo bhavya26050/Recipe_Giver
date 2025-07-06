@@ -3,7 +3,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-import pandas as pd
+import csv
+import os
 
 # Import your ML model
 try:

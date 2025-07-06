@@ -1,5 +1,5 @@
 import os
-import pandas as pd
+import csv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
@@ -21,17 +21,58 @@ else:
     model = None
     print("❌ GEMINI_API_KEY not found in environment variables")
 
-# Load dataset from the same directory
-base_dir = os.path.dirname(__file__)
-csv_path = os.path.join(base_dir, "recipes_small.csv")
+# Load dataset using CSV instead of pandas
+def load_recipes_csv():
+    """Load recipes from CSV file"""
+    recipes = []
+    base_dir = os.path.dirname(__file__)
+    csv_path = os.path.join(base_dir, "recipes_small.csv")
+    
+    try:
+        with open(csv_path, 'r', encoding='utf-8') as file:
+            csv_reader = csv.DictReader(file)
+            for row in csv_reader:
+                if row.get('ingredients'):  # Only include rows with ingredients
+                    recipes.append(row)
+        print(f"✅ Loaded {len(recipes)} recipes from CSV")
+        return recipes
+    except FileNotFoundError:
+        print("❌ recipes_small.csv not found")
+        return []
 
-# Load and clean dataset
-df = pd.read_csv(csv_path)
-df.dropna(subset=['ingredients'], inplace=True)
+# Load recipes
+recipes_data = load_recipes_csv()
 
-# TF-IDF Vectorizer
-vectorizer = TfidfVectorizer(stop_words='english')
-tfidf_matrix = vectorizer.fit_transform(df['ingredients'])
+# Create ingredients list for TF-IDF
+ingredients_list = [recipe.get('ingredients', '') for recipe in recipes_data if recipe.get('ingredients')]
+
+# TF-IDF Vectorizer (only if we have data)
+if ingredients_list:
+    vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = vectorizer.fit_transform(ingredients_list)
+else:
+    vectorizer = None
+    tfidf_matrix = None
+
+def recommend_recipes(user_ingredients, top_n=5):
+    """Recommend recipes based on user ingredients"""
+    if not vectorizer or not tfidf_matrix:
+        return []
+    
+    user_vec = vectorizer.transform([user_ingredients])
+    cosine_sim = cosine_similarity(user_vec, tfidf_matrix)
+    top_indices = cosine_sim[0].argsort()[-top_n:][::-1]
+    
+    recommendations = []
+    for idx in top_indices:
+        if idx < len(recipes_data):
+            recipe = recipes_data[idx]
+            recommendations.append({
+                'title': recipe.get('title', 'Unknown Recipe'),
+                'ingredients': recipe.get('ingredients', '')
+            })
+    
+    return recommendations
 
 # Recipe recommendation logic
 def recommend_recipes(user_ingredients, top_n=5):
