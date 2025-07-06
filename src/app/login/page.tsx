@@ -1,11 +1,10 @@
 'use client';
 
-import { signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { auth } from '@/firebase/firebaseConfig';
 import { ChefHat, Mail, Lock, ArrowRight, Loader2, AlertCircle, X, ArrowLeft } from 'lucide-react';
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -60,6 +59,26 @@ export default function LoginPage() {
       router.push('/chat');
     } catch (err: any) {
       setError(err.message);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    if (!email) {
+      setError('Please enter your email address above to reset your password.');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setError('Password reset email sent! Please check your inbox.');
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found') {
+        setError('No account found with this email.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError('Failed to send password reset email.');
+      }
     }
   };
 
@@ -187,7 +206,7 @@ export default function LoginPage() {
                     <button 
                       type="button"
                       className="text-xs text-emerald-600 hover:text-emerald-800 transition-colors"
-                      onClick={() => {/* Handle forgot password */}}
+                      onClick={handleForgotPassword}
                     >
                       Forgot password?
                     </button>
