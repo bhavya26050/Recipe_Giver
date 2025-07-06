@@ -529,224 +529,131 @@ Return ONLY a JSON object with this format:
 
 # Add these new AI-powered recommendation functions:
 
-def get_smart_recipe_recommendations(dish_name: str, recipe_db: list, count: int = 5) -> dict:
-    """Advanced AI-powered recipe recommendations using multiple strategies"""
-    
-    if not model:
-        return {
-            'suggestions': get_fallback_recommendations(dish_name),
-            'algorithm': 'fallback',
-            'confidence': 'low'
-        }
-    
+import re
+
+def get_intelligent_recommendations(dish_name: str, recipe_db: list, count: int = 5) -> dict:
+    """
+    Main recommendation engine - simplified version that works
+    """
     try:
-        # **🔥 MULTI-STRATEGY AI RECOMMENDATION**
+        print(f"🤖 Getting recommendations for: '{dish_name}'")
         
-        # Strategy 1: Semantic similarity analysis
-        semantic_suggestions = get_semantic_recommendations(dish_name)
+        # **🔥 STRATEGY 1: AI-powered recommendations**
+        ai_recommendations = get_ai_semantic_recommendations(dish_name, count)
         
-        # Strategy 2: Ingredient-based recommendations
-        ingredient_suggestions = get_ingredient_based_recommendations(dish_name, recipe_db)
+        # **🔥 STRATEGY 2: Database similarity search**
+        db_recommendations = get_database_similarity_recommendations(dish_name, recipe_db, count)
         
-        # Strategy 3: Cultural/cuisine recommendations
-        cultural_suggestions = get_cultural_recommendations(dish_name)
+        # **🔥 COMBINE RECOMMENDATIONS**
+        all_recommendations = []
         
-        # Strategy 4: Nutritional similarity recommendations
-        nutritional_suggestions = get_nutritional_recommendations(dish_name)
+        # Add AI recommendations first
+        for rec in ai_recommendations:
+            all_recommendations.append({
+                'title': rec,
+                'source': 'ai_semantic',
+                'confidence': 0.8
+            })
         
-        # **🔥 COMBINE AND RANK SUGGESTIONS**
-        all_suggestions = []
-        
-        # Add semantic suggestions (highest priority)
-        all_suggestions.extend([(s, 'semantic', 0.9) for s in semantic_suggestions[:2]])
-        
-        # Add ingredient-based suggestions
-        all_suggestions.extend([(s, 'ingredient', 0.8) for s in ingredient_suggestions[:2]])
-        
-        # Add cultural suggestions
-        all_suggestions.extend([(s, 'cultural', 0.7) for s in cultural_suggestions[:2]])
-        
-        # Add nutritional suggestions
-        all_suggestions.extend([(s, 'nutritional', 0.6) for s in nutritional_suggestions[:1]])
-        
-        # **🔥 REMOVE DUPLICATES AND RANK**
-        unique_suggestions = []
-        seen = set()
-        
-        for suggestion, strategy, confidence in all_suggestions:
-            suggestion_clean = suggestion.lower().strip()
-            if suggestion_clean not in seen and suggestion_clean != dish_name.lower():
-                unique_suggestions.append({
-                    'recipe': suggestion,
-                    'strategy': strategy,
-                    'confidence': confidence,
-                    'reasoning': get_recommendation_reasoning(dish_name, suggestion, strategy)
+        # Add database recommendations that aren't duplicates
+        for rec in db_recommendations:
+            if not any(similar_titles(rec, existing['title']) for existing in all_recommendations):
+                all_recommendations.append({
+                    'title': rec,
+                    'source': 'database_similarity',
+                    'confidence': 0.7
                 })
-                seen.add(suggestion_clean)
-                
-                if len(unique_suggestions) >= count:
-                    break
+        
+        # Limit to requested count
+        final_recommendations = all_recommendations[:count]
         
         return {
-            'suggestions': [s['recipe'] for s in unique_suggestions],
-            'detailed_suggestions': unique_suggestions,
-            'algorithm': 'multi_strategy_ai',
-            'confidence': 'high',
-            'strategies_used': list(set([s['strategy'] for s in unique_suggestions]))
+            'success': True,
+            'recommendations': final_recommendations,
+            'strategies_used': ['ai_semantic', 'database_similarity'],
+            'confidence': 'high' if len(final_recommendations) >= 3 else 'medium',
+            'source': 'intelligent_hybrid'
         }
         
     except Exception as e:
-        print(f"❌ Error in smart recommendations: {e}")
+        print(f"❌ Error in intelligent recommendations: {e}")
         return {
-            'suggestions': get_fallback_recommendations(dish_name),
-            'algorithm': 'fallback_after_error',
-            'confidence': 'low',
-            'error': str(e)
+            'success': False,
+            'error': str(e),
+            'recommendations': []
         }
 
-def get_semantic_recommendations(dish_name: str) -> list:
-    """Get recommendations based on semantic similarity"""
-    prompt = f"""Based on the dish "{dish_name}", suggest 3 recipes that are semantically similar.
+def get_ai_semantic_recommendations(dish_name: str, count: int) -> list:
+    """Get AI-powered semantic recommendations"""
+    try:
+        if not model:
+            return []
+            
+        prompt = f"""Based on "{dish_name}", suggest {count} similar recipes.
 
 Consider:
-- Similar flavor profiles
-- Comparable complexity
-- Same comfort level (comfort food vs fine dining)
-- Similar eating experience
-- Cultural proximity
-
-Focus on dishes that would appeal to someone who enjoys "{dish_name}".
+- Similar ingredients and flavors
+- Same cuisine style or cooking methods
+- Dishes that would appeal to the same taste preferences
 
 Return only recipe names, one per line:"""
 
-    try:
         response = model.generate_content(prompt)
-        return parse_ai_suggestions(response.text)
-    except:
-        return []
-
-def get_ingredient_based_recommendations(dish_name: str, recipe_db: list) -> list:
-    """Get recommendations based on shared ingredients"""
-    prompt = f"""Analyze the main ingredients in "{dish_name}" and suggest 3 recipes that share key ingredients but offer variety.
-
-Consider:
-- Primary protein/main ingredient
-- Key spices and seasonings
-- Base ingredients (rice, pasta, etc.)
-- Cooking fats and aromatics
-
-Suggest recipes that use similar ingredients in different ways.
-
-Return only recipe names, one per line:"""
-
-    try:
-        response = model.generate_content(prompt)
-        ai_suggestions = parse_ai_suggestions(response.text)
+        lines = response.text.strip().split('\n')
         
-        # **🔥 ENHANCE WITH DATABASE VERIFICATION**
-        verified_suggestions = []
-        for suggestion in ai_suggestions:
-            # Check if similar recipe exists in database
-            if recipe_exists_in_db(suggestion, recipe_db):
-                verified_suggestions.append(suggestion)
-            else:
-                verified_suggestions.append(suggestion)  # Keep AI suggestion even if not in DB
+        recommendations = []
+        for line in lines:
+            cleaned = line.strip()
+            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
+            cleaned = re.sub(r'^[-•*]\s*', '', cleaned)
+            cleaned = cleaned.strip('"\'')
+            
+            if cleaned and len(cleaned) > 3:
+                recommendations.append(cleaned)
         
-        return verified_suggestions
-    except:
-        return []
-
-def get_cultural_recommendations(dish_name: str) -> list:
-    """Get recommendations from same or related cuisines"""
-    prompt = f"""Based on the cultural/regional cuisine of "{dish_name}", suggest 3 recipes from the same or closely related culinary traditions.
-
-Consider:
-- Same regional cuisine
-- Neighboring culinary traditions
-- Historical culinary connections
-- Similar cooking techniques and flavor principles
-
-Return only recipe names, one per line:"""
-
-    try:
-        response = model.generate_content(prompt)
-        return parse_ai_suggestions(response.text)
-    except:
-        return []
-
-def get_nutritional_recommendations(dish_name: str) -> list:
-    """Get recommendations with similar nutritional profile"""
-    prompt = f"""Based on the nutritional characteristics of "{dish_name}", suggest 2 recipes with similar:
-
-- Caloric density
-- Macronutrient balance (protein/carb/fat ratio)
-- Satiety level
-- Healthiness quotient
-
-Focus on nutritionally similar alternatives.
-
-Return only recipe names, one per line:"""
-
-    try:
-        response = model.generate_content(prompt)
-        return parse_ai_suggestions(response.text)
-    except:
-        return []
-
-def get_recommendation_reasoning(original_dish: str, suggested_dish: str, strategy: str) -> str:
-    """Generate reasoning for why a recipe was recommended"""
-    reasoning_prompts = {
-        'semantic': f"Why would someone who likes {original_dish} also enjoy {suggested_dish}? Focus on taste and experience similarities.",
-        'ingredient': f"What key ingredients do {original_dish} and {suggested_dish} share that make them good companions?",
-        'cultural': f"How are {original_dish} and {suggested_dish} culturally or regionally connected?",
-        'nutritional': f"What nutritional similarities make {original_dish} and {suggested_dish} good alternatives?"
-    }
-    
-    try:
-        prompt = reasoning_prompts.get(strategy, f"Why is {suggested_dish} a good recommendation for someone who likes {original_dish}?")
-        response = model.generate_content(f"{prompt} Keep it brief (1-2 sentences).")
-        return response.text.strip()
-    except:
-        return f"Similar to {original_dish} in {strategy} characteristics."
-
-def parse_ai_suggestions(ai_response: str) -> list:
-    """Parse AI response to extract clean recipe names"""
-    suggestions = []
-    lines = ai_response.strip().split('\n')
-    
-    for line in lines:
-        # Clean up the line
-        cleaned = line.strip()
-        # Remove numbering, bullets, etc.
-        cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
-        cleaned = re.sub(r'^[-•*]\s*', '', cleaned)
-        cleaned = cleaned.strip('"\'')
+        return recommendations[:count]
         
-        if cleaned and len(cleaned) > 3:
-            suggestions.append(cleaned)
-    
-    return suggestions
+    except Exception as e:
+        print(f"❌ AI semantic recommendations failed: {e}")
+        return []
 
-def recipe_exists_in_db(recipe_name: str, recipe_db: list) -> bool:
-    """Check if a recipe exists in the database"""
-    recipe_lower = recipe_name.lower()
-    for recipe in recipe_db:
-        if recipe_lower in recipe.get('title', '').lower():
-            return True
-    return False
+def get_database_similarity_recommendations(dish_name: str, recipe_db: list, count: int) -> list:
+    """Get recommendations from database using keyword matching"""
+    try:
+        dish_lower = dish_name.lower()
+        recommendations = []
+        
+        # Extract keywords from dish name
+        keywords = [word for word in dish_lower.split() if len(word) > 2]
+        
+        # Search for recipes with similar keywords
+        for recipe in recipe_db:
+            title = recipe.get('title', '').lower()
+            if title != dish_lower:
+                # Check if recipe title contains any keywords
+                if any(keyword in title for keyword in keywords):
+                    recommendations.append(recipe.get('title', ''))
+                    if len(recommendations) >= count * 2:  # Get extra for variety
+                        break
+        
+        # Shuffle for variety
+        import random
+        random.shuffle(recommendations)
+        
+        return recommendations[:count]
+        
+    except Exception as e:
+        print(f"❌ Database similarity search failed: {e}")
+        return []
 
-def get_fallback_recommendations(dish_name: str) -> list:
-    """Fallback recommendations when AI is unavailable"""
-    dish_lower = dish_name.lower()
+def similar_titles(title1: str, title2: str) -> bool:
+    """Check if two recipe titles are similar"""
+    words1 = set(title1.lower().split())
+    words2 = set(title2.lower().split())
     
-    # Simple keyword-based fallback
-    if 'chicken' in dish_lower:
-        return ['Chicken Tikka Masala', 'Grilled Chicken Salad', 'Chicken Stir Fry']
-    elif 'paneer' in dish_lower:
-        return ['Palak Paneer', 'Paneer Tikka', 'Shahi Paneer']
-    elif 'chocolate' in dish_lower:
-        return ['Chocolate Brownies', 'Chocolate Chip Cookies', 'Chocolate Mousse']
-    elif 'pasta' in dish_lower:
-        return ['Spaghetti Carbonara', 'Penne Arrabbiata', 'Lasagna']
-    else:
-        return ['Mixed Vegetable Curry', 'Fried Rice', 'Caesar Salad']
+    # If they share more than 50% of words, consider them similar
+    intersection = len(words1.intersection(words2))
+    union = len(words1.union(words2))
+    
+    similarity = intersection / union if union > 0 else 0
+    return similarity > 0.5

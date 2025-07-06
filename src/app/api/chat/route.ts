@@ -21,8 +21,35 @@ async function callBackend(endpoint: string, data: any): Promise<any> {
 
 async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${BACKEND_URL}/health`);
+    console.log(`🔍 Checking backend health at: ${BACKEND_URL}/api/health`);
+    
+    const response = await fetch(`${BACKEND_URL}/api/health`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      // Add timeout
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
+
+    console.log(`📊 Health check response status: ${response.status}`);
+
+    if (!response.ok) {
+      console.error(`❌ Health check failed with status: ${response.status}`);
+      return false;
+    }
+
+    // Check if response is actually JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error(`❌ Health check returned non-JSON content: ${contentType}`);
+      return false;
+    }
+
     const data = await response.json();
+    console.log(`✅ Health check data:`, data);
+    
     return data.status === 'healthy';
   } catch (error) {
     console.error('❌ Backend health check failed:', error);
@@ -439,21 +466,90 @@ ${mealTypeResult.recipes.map((recipe: string, index: number) =>
       return NextResponse.json({ response: finalResponse, source: "ai_generated_with_suggestions", dishName });
     }
 
-    // ✅ **Priority 4: Ingredient-based Search**
-    const ingredientMatch = userQuery.match(/(?:recipes?\s+(?:from|with|using)\s+)([a-zA-Z]+)/i);
-    if (ingredientMatch) {
-      const ingredient = ingredientMatch[1].toLowerCase();
-      const ingredientResult = await callBackend('/api/search-by-ingredient', { ingredient, offset: 0 });
+    // ✅ **Priority 4: Enhanced Ingredient-based Search**
+    const ingredientPatterns = [
+      /(?:recipes?\s+(?:from|with|using|made with)\s+)([a-zA-Z]+)/i,
+      /(?:recipe\s+using\s+)([a-zA-Z]+)/i,
+      /(?:dishes?\s+with\s+)([a-zA-Z]+)/i,
+      /(?:what\s+can\s+i\s+make\s+with\s+)([a-zA-Z]+)/i,
+      /(?:show\s+me\s+)([a-zA-Z]+)(?:\s+recipes?)/i
+    ];
 
-      if (ingredientResult.found && ingredientResult.recipes.length > 0) {
-        const response = `# 🥘 Recipes with ${ingredient.charAt(0).toUpperCase() + ingredient.slice(1)}
+    let ingredientMatch = null;
+    let ingredient = null;
 
-${ingredientResult.recipes.map((title: string, idx: number) => `${idx + 1}. ${title}`).join('\n')}
+    // Try each pattern to find ingredient
+    for (const pattern of ingredientPatterns) {
+      ingredientMatch = userQuery.match(pattern);
+      if (ingredientMatch) {
+        ingredient = ingredientMatch[1].toLowerCase();
+        break;
+      }
+    }
 
-**Want the full recipe?** Just ask me about any of these dishes! 😊`;
-        
-        responseCache.set(cacheKey, response);
-        return NextResponse.json({ response, source: "ingredient_search", ingredient });
+    // **🔥 ENHANCED: Also check for standalone ingredient mentions**
+    if (!ingredient) {
+      const commonIngredients = [
+        'paneer', 'chicken', 'chocolate', 'potato', 'rice', 'pasta', 'fish', 
+        'beef', 'pork', 'egg', 'vegetable', 'mutton', 'dal', 'lentil',
+        'tomato', 'onion', 'garlic', 'spinach', 'cheese', 'milk'
+      ];
+
+      for (const commonIngredient of commonIngredients) {
+        if (userQuery.toLowerCase().includes(commonIngredient)) {
+          ingredient = commonIngredient;
+          break;
+        }
+      }
+    }
+
+    console.log(`🔍 Extracted ingredient: "${ingredient}" from query: "${userQuery}"`);
+
+    if (ingredient) {
+      try {
+        const ingredientResult = await callBackend('/api/search-by-ingredient', { 
+          ingredient, 
+          offset: 0 
+        });
+
+        if (ingredientResult.found && ingredientResult.recipes.length > 0) {
+          const response = `# 🥘 Recipes with ${ingredient.charAt(0).toUpperCase() + ingredient.slice(1)}
+
+Here are ${ingredientResult.total_found} delicious recipes I found:
+
+${ingredientResult.recipes.map((title: string, idx: number) => `**${idx + 1}.** ${title}`).join('\n')}
+
+**Want the full recipe?** Just ask me about any of these dishes! 😊
+
+**Need more options?** I can show you different types of ${ingredient} dishes or recipes from specific cuisines.`;
+          
+          responseCache.set(cacheKey, response);
+          return NextResponse.json({ response, source: "ingredient_search", ingredient });
+        } else {
+          // **🔥 FALLBACK: Generate AI-based ingredient recipes**
+          try {
+            const aiRecipeResult = await callBackend('/api/generate-recipe-list', { 
+              ingredient 
+            });
+            
+            if (aiRecipeResult.suggestions) {
+              const response = `# 🥘 Creative ${ingredient.charAt(0).toUpperCase() + ingredient.slice(1)} Recipe Ideas
+
+I couldn't find recipes in my database, but here are some creative ideas:
+
+${aiRecipeResult.suggestions}
+
+**Want a specific recipe?** Just ask me "How to make [dish name]" and I'll provide detailed instructions! 😊`;
+              
+              responseCache.set(cacheKey, response);
+              return NextResponse.json({ response, source: "ai_ingredient_fallback", ingredient });
+            }
+          } catch (aiError) {
+            console.warn("⚠️ AI ingredient fallback failed:", aiError);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ Ingredient search failed for "${ingredient}":`, error);
       }
     }
 

@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import random
 from model import classify_recipe_dietary, generate_meal_plan, get_meal_type_recipes, generate_shopping_list
 import ast
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -164,7 +165,7 @@ def search_recipe_in_csv(dish_name: str) -> Optional[Dict[str, Any]]:
             print(f"✅ Found partial match: '{best_partial['title']}' with {partial_matches[0][1]} ingredients")
             return best_partial
     
-    # Rest of your existing search logic...
+    # Special case handling
     if 'paneer' in search_term and 'butter' in search_term and 'masala' in search_term:
         for recipe in recipe_db:
             title_lower = recipe.get('title', '').lower()
@@ -186,11 +187,6 @@ def format_csv_recipe(recipe: Dict[str, Any]) -> str:
     """Format CSV recipe into markdown with complete data"""
     try:
         title = recipe.get('title', 'Recipe')
-        
-        # Debug: Print raw data
-        print(f"\n🔍 DEBUG: Formatting recipe '{title}'")
-        print(f"Raw ingredients: {recipe.get('ingredients', 'N/A')[:100]}...")
-        print(f"Raw directions: {recipe.get('directions', 'N/A')[:100]}...")
         
         # Parse ingredients - handle multiple formats
         ingredients = []
@@ -275,9 +271,6 @@ def format_csv_recipe(recipe: Dict[str, Any]) -> str:
                     cleaned += '.'
                 clean_directions.append(cleaned)
         
-        # Debug: Print parsed data
-        print(f"✅ Parsed {len(clean_ingredients)} ingredients, {len(clean_directions)} directions")
-        
         # Build complete formatted recipe
         formatted = f"## {title}\n\n"
         formatted += "*Perfect! I found this recipe in my database for you!* 🎯\n\n"
@@ -299,7 +292,7 @@ def format_csv_recipe(recipe: Dict[str, Any]) -> str:
         else:
             formatted += "### 👨‍🍳 **Instructions:**\n**1.** Instructions not available in database.\n\n"
         
-        # Add dietary classification (keep existing logic)
+        # Add dietary classification
         try:
             ingredients_text = ' '.join(clean_ingredients)
             dietary_info = classify_recipe_dietary(ingredients_text, title)
@@ -373,6 +366,152 @@ Make it warm, friendly, encouraging, and practical. Focus on clear instructions 
         print(f"❌ Error generating recipe: {e}")
         raise e
 
+def get_ai_only_recommendations(dish_name: str, count: int = 5) -> list:
+    """Simple AI-only recommendations as fallback"""
+    try:
+        prompt = f"""Based on the dish "{dish_name}", suggest {count} similar recipes that someone might enjoy.
+
+Consider:
+- Similar main ingredients
+- Same cuisine style
+- Similar cooking methods
+- Comparable flavors
+
+Return only recipe names, one per line:"""
+
+        response = model.generate_content(prompt)
+        lines = response.text.strip().split('\n')
+        
+        recommendations = []
+        for line in lines:
+            cleaned = line.strip()
+            # Remove numbering and formatting
+            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
+            cleaned = re.sub(r'^[-•*]\s*', '', cleaned)
+            cleaned = cleaned.strip('"\'')
+            
+            if cleaned and len(cleaned) > 3:
+                recommendations.append(cleaned)
+        
+        return recommendations[:count]
+        
+    except Exception as e:
+        print(f"❌ AI-only recommendations failed: {e}")
+        return []
+
+def simple_database_fallback(dish_name: str) -> list:
+    """Simple keyword-based database search as ultimate fallback"""
+    try:
+        if not recipe_db:
+            print("⚠️ Recipe database is empty")
+            return []
+            
+        dish_lower = dish_name.lower()
+        suggestions = []
+        
+        # Extract key words
+        keywords = [word for word in dish_lower.split() if len(word) > 2]
+        
+        if not keywords:
+            print("⚠️ No valid keywords extracted from dish name")
+            return []
+        
+        for recipe in recipe_db:
+            try:
+                title = recipe.get('title', '').lower()
+                if title and title != dish_lower:
+                    # Check if any keyword matches
+                    if any(keyword in title for keyword in keywords):
+                        suggestions.append(recipe.get('title', ''))
+                        if len(suggestions) >= 5:
+                            break
+            except Exception as e:
+                print(f"⚠️ Error processing recipe: {e}")
+                continue
+        
+        print(f"🔍 Simple fallback found {len(suggestions)} suggestions")
+        return suggestions
+        
+    except Exception as e:
+        print(f"❌ Simple database fallback failed: {e}")
+        return []
+
+def get_ai_ingredient_recipes(ingredient: str) -> list:
+    """Generate AI recipe suggestions for ingredient"""
+    try:
+        prompt = f"""Generate 8 specific recipe names that use "{ingredient}" as a main ingredient.
+
+Make them diverse:
+- Different cuisines (Indian, Italian, Asian, etc.)
+- Different meal types (breakfast, lunch, dinner, snacks)
+- Both simple and elaborate dishes
+
+Return only recipe names, one per line:"""
+
+        response = model.generate_content(prompt)
+        lines = response.text.strip().split('\n')
+        
+        recipes = []
+        for line in lines:
+            cleaned = line.strip()
+            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
+            cleaned = re.sub(r'^[-•*]\s*', '', cleaned)
+            cleaned = cleaned.strip('"\'')
+            
+            if cleaned and len(cleaned) > 3:
+                recipes.append(cleaned)
+        
+        return recipes[:8]
+        
+    except Exception as e:
+        print(f"❌ AI ingredient recipes failed: {e}")
+        return []
+
+def direct_ingredient_search(ingredient: str) -> list:
+    """Direct database search for ingredient - enhanced version"""
+    if not recipe_db:
+        print("⚠️ Recipe database is empty")
+        return []
+        
+    found_recipes = []
+    seen_titles = set()
+    
+    # Enhanced search with variations
+    search_terms = [ingredient]
+    
+    # Add common variations
+    if ingredient == 'paneer':
+        search_terms.extend(['cottage cheese', 'indian cheese'])
+    elif ingredient == 'chicken':
+        search_terms.extend(['poultry'])
+    elif ingredient == 'chocolate':
+        search_terms.extend(['cocoa', 'cacao'])
+    elif ingredient == 'potato':
+        search_terms.extend(['potatoes', 'aloo'])
+    
+    for recipe in recipe_db:
+        try:
+            ingredients_text = recipe.get('ingredients', '').lower()
+            title = recipe.get('title', 'Unknown Recipe')
+            
+            if title not in seen_titles:
+                # Check if any search term is in ingredients
+                if any(term in ingredients_text for term in search_terms):
+                    found_recipes.append(title)
+                    seen_titles.add(title)
+                    
+                    # Limit results for performance
+                    if len(found_recipes) >= 100:
+                        break
+        except Exception as e:
+            print(f"⚠️ Error processing recipe {recipe.get('title', 'Unknown')}: {e}")
+            continue
+    
+    print(f"🔍 Direct search found {len(found_recipes)} recipes for '{ingredient}'")
+    return found_recipes
+
+# **🔥 API ROUTES**
+
 @app.route('/api/extract-dish', methods=['POST'])
 def extract_dish():
     """Extract dish name from user query"""
@@ -444,62 +583,174 @@ def generate_recipe():
 
 @app.route('/api/search-by-ingredient', methods=['POST'])
 def search_by_ingredient():
+    """Search for recipes by ingredient with fallback strategies"""
     data = request.get_json()
-    ingredient = data.get("ingredient", "").lower()
-    offset = int(data.get("offset", 0))  # default to 0 if not provided
+    ingredient = data.get("ingredient", "").lower().strip()
+    offset = int(data.get("offset", 0))
 
     if not ingredient:
         return jsonify({"error": "Missing ingredient"}), 400
 
-    # Find all matching recipes
-    found_recipes = []
-    seen_titles = set()
-    for recipe in recipe_db:
-        ingredients = recipe.get('ingredients', '').lower()
-        title = recipe.get('title', 'Unknown Recipe')
-        if ingredient in ingredients and title not in seen_titles:
-            found_recipes.append(title)
-            seen_titles.add(title)
-
-    # 🟢 Shuffle the recipes before paginating
-    random.shuffle(found_recipes)
-
-    paginated = found_recipes[offset:offset+10]
-    has_more = offset + 10 < len(found_recipes)
-
-    return jsonify({
-        "found": len(paginated) > 0,
-        "recipes": paginated,
-        "total_found": len(found_recipes),
-        "offset": offset,
-        "next_offset": offset + 10 if has_more else None,
-        "has_more": has_more
-    })
-
+    try:
+        print(f"🔍 Searching for ingredient: '{ingredient}'")
+        
+        # **🔥 TRY MODEL-BASED SEARCH WITH FALLBACK**
+        try:
+            from model import get_intelligent_recommendations
+            
+            # Create a pseudo-dish name from ingredient for model
+            pseudo_dish = f"{ingredient} recipe"
+            result = get_intelligent_recommendations(pseudo_dish, recipe_db, count=15)
+            
+            if result and result.get('success') and result.get('recommendations'):
+                # Filter to only include recipes that actually contain the ingredient
+                filtered_recipes = []
+                for rec in result['recommendations']:
+                    recipe_title = rec.get('title', '')
+                    # Find the actual recipe in database
+                    for db_recipe in recipe_db:
+                        if db_recipe.get('title', '').lower() == recipe_title.lower():
+                            ingredients_text = db_recipe.get('ingredients', '').lower()
+                            if ingredient in ingredients_text:
+                                filtered_recipes.append(recipe_title)
+                            break
+                
+                # If we got enough from model, return them
+                if len(filtered_recipes) >= 5:
+                    paginated = filtered_recipes[offset:offset+10]
+                    return jsonify({
+                        "found": len(paginated) > 0,
+                        "recipes": paginated,
+                        "total_found": len(filtered_recipes),
+                        "has_more": offset + 10 < len(filtered_recipes),
+                        "algorithm_used": "model_based_ingredient_search",
+                        "ingredient_searched": ingredient
+                    })
+        except Exception as me:
+            print(f"⚠️ Model-based ingredient search failed: {me}")
+        
+        # **🔥 FALLBACK TO DIRECT DATABASE SEARCH**
+        direct_matches = direct_ingredient_search(ingredient)
+        
+        if direct_matches:
+            paginated = direct_matches[offset:offset+10]
+            return jsonify({
+                "found": len(paginated) > 0,
+                "recipes": paginated,
+                "total_found": len(direct_matches),
+                "has_more": offset + 10 < len(direct_matches),
+                "algorithm_used": "direct_database_search",
+                "ingredient_searched": ingredient
+            })
+        
+        # **🔥 AI FALLBACK FOR INGREDIENT RECIPES**
+        try:
+            ai_recipes = get_ai_ingredient_recipes(ingredient)
+            if ai_recipes:
+                return jsonify({
+                    "found": True,
+                    "recipes": ai_recipes,
+                    "total_found": len(ai_recipes),
+                    "has_more": False,
+                    "algorithm_used": "ai_generated_ingredient_recipes",
+                    "ingredient_searched": ingredient,
+                    "note": "AI-generated recipe suggestions"
+                })
+        except Exception as ae:
+            print(f"⚠️ AI ingredient fallback failed: {ae}")
+        
+        # **🔥 NO RESULTS FOUND**
+        return jsonify({
+            "found": False,
+            "recipes": [],
+            "total_found": 0,
+            "has_more": False,
+            "algorithm_used": "no_results",
+            "ingredient_searched": ingredient,
+            "message": f"No recipes found with {ingredient}. Try a different ingredient or ask for recipe suggestions!"
+        })
+            
+    except Exception as e:
+        print(f"❌ Complete ingredient search failure: {e}")
+        return jsonify({
+            "error": str(e),
+            "found": False,
+            "recipes": [],
+            "algorithm_used": "error_state"
+        }), 500
 
 @app.route('/api/generate-recipe-list', methods=['POST'])
 def generate_recipe_list():
+    """Generate AI-powered recipe list for ingredient"""
     data = request.get_json()
     ingredient = data.get('ingredient', '').strip()
+    
     if not ingredient:
         return jsonify({'error': 'Ingredient is required'}), 400
 
-    prompt = f"""List 10 creative, diverse, and appealing dish ideas that use "{ingredient}" as a main ingredient. 
-Just give the dish names, no instructions or ingredients. 
-Format as a numbered list."""
+    # Enhanced prompt for better variety
+    prompt = f"""Generate 10 diverse and appealing recipe names that prominently feature "{ingredient}" as a main ingredient.
+
+Requirements:
+- Include variety in cuisines (Indian, Italian, Asian, Mexican, American, etc.)
+- Mix of meal types (breakfast, lunch, dinner, snacks, desserts)
+- Range from quick 15-minute recipes to elaborate dishes
+- Include both traditional and modern fusion recipes
+- Make each recipe name specific and appetizing
+- Ensure {ingredient} is clearly the star ingredient
+
+Examples for paneer:
+- Paneer Butter Masala
+- Grilled Paneer Tikka
+- Paneer Fried Rice
+- Spinach Paneer Wrap
+- Paneer Tikka Pizza
+
+Return only the recipe names in a numbered list format:
+1. [Recipe Name]
+2. [Recipe Name]
+etc."""
 
     try:
         response = model.generate_content(prompt)
+        
+        # Enhanced parsing
+        suggestions_text = response.text.strip()
+        
+        # Clean and format the response
+        lines = suggestions_text.split('\n')
+        formatted_suggestions = []
+        
+        for i, line in enumerate(lines, 1):
+            cleaned = line.strip()
+            # Remove existing numbering
+            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
+            # Remove bullets
+            cleaned = re.sub(r'^[-•*]\s*', '', cleaned)
+            
+            if cleaned and len(cleaned) > 3:
+                # Add our own numbering
+                formatted_suggestions.append(f"{i}. {cleaned}")
+        
+        # Join back into text
+        final_suggestions = '\n'.join(formatted_suggestions[:10])
+        
+        print(f"✅ Generated {len(formatted_suggestions)} recipe suggestions for '{ingredient}'")
+        
         return jsonify({
-            'suggestions': response.text,
+            'suggestions': final_suggestions,
+            'ingredient': ingredient,
+            'count': len(formatted_suggestions),
             'source': 'ai_generated_list'
         })
+        
     except Exception as e:
+        print(f"❌ Error generating recipe list for '{ingredient}': {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/related-recipes', methods=['POST'])
 def related_recipes():
-    """AI-powered recipe recommendations using Gemini"""
+    """Model-based intelligent recipe recommendations with proper error handling"""
     data = request.get_json()
     dish_name = data.get('dish_name', '').strip()
     
@@ -507,598 +758,138 @@ def related_recipes():
         return jsonify({'error': 'Dish name is required'}), 400
     
     try:
-        # **🔥 AI-POWERED RECOMMENDATION SYSTEM**
-        suggestions = get_ai_recipe_recommendations(dish_name)
+        print(f"🤖 Getting model-based recommendations for: '{dish_name}'")
         
-        # **🔥 ENHANCED WITH DATABASE SEARCH**
-        database_suggestions = search_similar_recipes_in_db(dish_name)
+        # **🔥 TRY MODEL-BASED RECOMMENDATION ENGINE WITH FALLBACK**
+        try:
+            from model import get_intelligent_recommendations
+            result = get_intelligent_recommendations(dish_name, recipe_db, count=5)
+            
+            if result and result.get('success'):
+                recommendations = [rec['title'] for rec in result.get('recommendations', [])]
+                
+                print(f"✅ Model-based system returned {len(recommendations)} recommendations")
+                
+                return jsonify({
+                    'success': True,
+                    'dish_name': dish_name,
+                    'suggestions': recommendations,
+                    'algorithm_used': f"model_based_{result.get('source', 'unknown')}",
+                    'confidence': result.get('confidence', 'medium')
+                })
+        except ImportError as ie:
+            print(f"⚠️ Model import failed: {ie}")
+        except Exception as me:
+            print(f"⚠️ Model-based recommendations failed: {me}")
         
-        # **🔥 COMBINE AI AND DATABASE RECOMMENDATIONS**
-        all_suggestions = []
+        # **🔥 FALLBACK TO SIMPLE AI RECOMMENDATIONS**
+        try:
+            ai_suggestions = get_ai_only_recommendations(dish_name, count=5)
+            if ai_suggestions:
+                return jsonify({
+                    'success': True,
+                    'dish_name': dish_name,
+                    'suggestions': ai_suggestions,
+                    'algorithm_used': 'ai_only_fallback',
+                    'confidence': 'medium'
+                })
+        except Exception as ae:
+            print(f"⚠️ AI-only recommendations failed: {ae}")
         
-        # Add AI suggestions first (more creative and diverse)
-        all_suggestions.extend(suggestions[:3])
+        # **🔥 FALLBACK TO DATABASE SEARCH**
+        try:
+            fallback_suggestions = simple_database_fallback(dish_name)
+            if fallback_suggestions:
+                return jsonify({
+                    'success': True,
+                    'dish_name': dish_name,
+                    'suggestions': fallback_suggestions,
+                    'algorithm_used': 'simple_database_fallback',
+                    'note': 'Using simple database search as fallback'
+                })
+        except Exception as de:
+            print(f"⚠️ Database fallback failed: {de}")
         
-        # Add database suggestions that aren't duplicates
-        for db_suggestion in database_suggestions[:3]:
-            if not any(
-                similar_recipe_names(db_suggestion, existing) 
-                for existing in all_suggestions
-            ):
-                all_suggestions.append(db_suggestion)
-        
-        # Limit to 5 suggestions
-        final_suggestions = all_suggestions[:5]
-        
-        print(f"🎯 AI + DB recommendations for '{dish_name}': {final_suggestions}")
-        
+        # **🔥 ULTIMATE FALLBACK - RETURN EMPTY BUT SUCCESSFUL**
         return jsonify({
             'success': True,
             'dish_name': dish_name,
-            'suggestions': final_suggestions,
-            'ai_suggestions': len(suggestions),
-            'db_suggestions': len(database_suggestions),
-            'algorithm_used': 'ai_powered_hybrid'
+            'suggestions': [],
+            'algorithm_used': 'no_recommendations_available',
+            'note': 'No recommendations could be generated at this time'
         })
     
     except Exception as e:
-        print(f"❌ Error getting AI recommendations: {e}")
-        
-        # **🔥 FALLBACK TO DATABASE-ONLY SEARCH**
-        try:
-            fallback_suggestions = search_similar_recipes_in_db(dish_name)
-            return jsonify({
-                'success': True,
-                'dish_name': dish_name,
-                'suggestions': fallback_suggestions[:5],
-                'algorithm_used': 'database_fallback',
-                'note': 'AI recommendations unavailable, using database search'
-            })
-        except Exception as fallback_error:
-            print(f"❌ Fallback also failed: {fallback_error}")
-            return jsonify({
-                'error': str(e),
-                'fallback_error': str(fallback_error)
-            }), 500
-
-def get_ai_recipe_recommendations(dish_name: str, count: int = 5) -> list:
-    """Get intelligent recipe recommendations using AI"""
-    prompt = f"""Based on the dish "{dish_name}", suggest {count} similar or complementary recipes that someone might enjoy.
-
-Consider:
-- Same main ingredient (if applicable)
-- Similar cuisine style
-- Complementary flavors
-- Same meal category (breakfast/lunch/dinner/dessert)
-- Similar cooking techniques
-- Seasonal compatibility
-
-Requirements:
-- Return ONLY recipe names, no descriptions
-- Make suggestions creative but realistic
-- Ensure variety in cooking methods
-- Consider dietary patterns
-- Format as a simple numbered list
-
-Dish: {dish_name}
-
-Recommendations:"""
-
-    try:
-        response = model.generate_content(prompt)
-        suggestions_text = response.text.strip()
-        
-        # Parse the AI response to extract recipe names
-        suggestions = []
-        lines = suggestions_text.split('\n')
-        
-        for line in lines:
-            # Clean up the line and extract recipe name
-            cleaned = line.strip()
-            # Remove numbering (1., 2., etc.)
-            cleaned = re.sub(r'^\d+\.?\s*', '', cleaned)
-            # Remove extra formatting
-            cleaned = cleaned.strip('- •*')
-            
-            if cleaned and len(cleaned) > 3:
-                suggestions.append(cleaned)
-        
-        print(f"🤖 AI generated {len(suggestions)} recommendations for '{dish_name}'")
-        return suggestions[:count]
-        
-    except Exception as e:
-        print(f"❌ Error getting AI recommendations: {e}")
-        return []
-
-def search_similar_recipes_in_db(dish_name: str, limit: int = 5) -> list:
-    """Search for similar recipes in database using intelligent matching"""
-    if not recipe_db:
-        return []
-    
-    dish_lower = dish_name.lower()
-    suggestions = []
-    
-    # **🔥 INTELLIGENT KEYWORD EXTRACTION**
-    keywords = extract_recipe_keywords(dish_name)
-    print(f"🔍 Extracted keywords from '{dish_name}': {keywords}")
-    
-    # **🔥 MULTI-TIER SEARCH STRATEGY**
-    
-    # Tier 1: Main ingredient matching
-    main_ingredient = keywords.get('main_ingredient')
-    if main_ingredient:
-        ingredient_matches = find_recipes_by_ingredient(main_ingredient, dish_lower)
-        suggestions.extend(ingredient_matches[:3])
-    
-    # Tier 2: Cuisine/style matching
-    cuisine = keywords.get('cuisine')
-    if cuisine and len(suggestions) < limit:
-        cuisine_matches = find_recipes_by_cuisine(cuisine, dish_lower)
-        for match in cuisine_matches:
-            if match not in suggestions:
-                suggestions.append(match)
-                if len(suggestions) >= limit:
-                    break
-    
-    # Tier 3: Cooking method matching
-    cooking_method = keywords.get('cooking_method')
-    if cooking_method and len(suggestions) < limit:
-        method_matches = find_recipes_by_cooking_method(cooking_method, dish_lower)
-        for match in method_matches:
-            if match not in suggestions:
-                suggestions.append(match)
-                if len(suggestions) >= limit:
-                    break
-    
-    # Tier 4: Meal type matching
-    meal_type = keywords.get('meal_type')
-    if meal_type and len(suggestions) < limit:
-        meal_matches = find_recipes_by_meal_type(meal_type, dish_lower)
-        for match in meal_matches:
-            if match not in suggestions:
-                suggestions.append(match)
-                if len(suggestions) >= limit:
-                    break
-    
-    print(f"📊 Database search found {len(suggestions)} suggestions")
-    return suggestions[:limit]
-
-def extract_recipe_keywords(dish_name: str) -> dict:
-    """Extract key characteristics of a dish using AI"""
-    prompt = f"""Analyze the dish "{dish_name}" and extract key characteristics.
-
-Return a JSON object with these fields:
-- main_ingredient: primary protein/ingredient (chicken, paneer, chocolate, etc.)
-- cuisine: cuisine style (indian, italian, chinese, american, etc.)
-- cooking_method: primary cooking technique (fried, baked, grilled, etc.)
-- meal_type: when it's typically eaten (breakfast, lunch, dinner, dessert, snack)
-- category: dish category (curry, pasta, cake, soup, etc.)
-
-Examples:
-"Butter Chicken" → {{"main_ingredient": "chicken", "cuisine": "indian", "cooking_method": "simmered", "meal_type": "dinner", "category": "curry"}}
-"Chocolate Cake" → {{"main_ingredient": "chocolate", "cuisine": "western", "cooking_method": "baked", "meal_type": "dessert", "category": "cake"}}
-
-Dish: {dish_name}
-
-Return only the JSON object:"""
-
-    try:
-        response = model.generate_content(prompt)
-        # Parse JSON response
-        import json
-        keywords = json.loads(response.text.strip())
-        return keywords
-    except Exception as e:
-        print(f"❌ Error extracting keywords: {e}")
-        # Fallback to simple keyword extraction
-        dish_lower = dish_name.lower()
-        return {
-            'main_ingredient': extract_main_ingredient_simple(dish_lower),
-            'cuisine': extract_cuisine_simple(dish_lower),
-            'cooking_method': extract_cooking_method_simple(dish_lower),
-            'meal_type': extract_meal_type_simple(dish_lower),
-            'category': extract_category_simple(dish_lower)
-        }
-
-def extract_main_ingredient_simple(dish_lower: str) -> str:
-    """Simple fallback for main ingredient extraction"""
-    ingredients = {
-        'chicken': ['chicken'], 'paneer': ['paneer'], 'chocolate': ['chocolate'],
-        'fish': ['fish', 'salmon', 'tuna'], 'beef': ['beef'], 'pork': ['pork'],
-        'egg': ['egg'], 'potato': ['potato'], 'rice': ['rice', 'biryani'],
-        'pasta': ['pasta', 'spaghetti'], 'dal': ['dal', 'lentil']
-    }
-    
-    for ingredient, keywords in ingredients.items():
-        if any(keyword in dish_lower for keyword in keywords):
-            return ingredient
-    return 'mixed'
-
-def extract_cuisine_simple(dish_lower: str) -> str:
-    """Simple fallback for cuisine extraction"""
-    cuisines = {
-        'indian': ['masala', 'curry', 'biryani', 'dal', 'tandoori', 'paneer'],
-        'italian': ['pasta', 'pizza', 'risotto', 'carbonara'],
-        'chinese': ['fried rice', 'noodles', 'stir fry'],
-        'american': ['burger', 'bbq', 'sandwich']
-    }
-    
-    for cuisine, keywords in cuisines.items():
-        if any(keyword in dish_lower for keyword in keywords):
-            return cuisine
-    return 'international'
-
-def extract_cooking_method_simple(dish_lower: str) -> str:
-    """Simple fallback for cooking method extraction"""
-    methods = {
-        'fried': ['fried', 'fry'], 'baked': ['baked', 'cake'],
-        'grilled': ['grilled', 'bbq'], 'steamed': ['steamed'],
-        'boiled': ['boiled', 'soup']
-    }
-    
-    for method, keywords in methods.items():
-        if any(keyword in dish_lower for keyword in keywords):
-            return method
-    return 'mixed'
-
-def extract_meal_type_simple(dish_lower: str) -> str:
-    """Simple fallback for meal type extraction"""
-    if any(word in dish_lower for word in ['cake', 'ice cream', 'dessert', 'sweet']):
-        return 'dessert'
-    elif any(word in dish_lower for word in ['breakfast', 'pancake', 'toast']):
-        return 'breakfast'
-    elif any(word in dish_lower for word in ['salad', 'sandwich', 'wrap']):
-        return 'lunch'
-    else:
-        return 'dinner'
-
-def extract_category_simple(dish_lower: str) -> str:
-    """Simple fallback for category extraction"""
-    categories = {
-        'curry': ['curry', 'masala'], 'cake': ['cake'],
-        'pasta': ['pasta'], 'soup': ['soup'],
-        'salad': ['salad'], 'rice': ['rice', 'biryani']
-    }
-    
-    for category, keywords in categories.items():
-        if any(keyword in dish_lower for keyword in keywords):
-            return category
-    return 'main_dish'
-
-def find_recipes_by_ingredient(ingredient: str, exclude_dish: str) -> list:
-    """Find recipes containing specific ingredient"""
-    matches = []
-    for recipe in recipe_db:
-        title = recipe.get('title', '').lower()
-        ingredients_text = recipe.get('ingredients', '').lower()
-        
-        if (title != exclude_dish and 
-            ingredient.lower() in title and
-            ingredient.lower() in ingredients_text):
-            matches.append(recipe.get('title', ''))
-            if len(matches) >= 3:
-                break
-    
-    return matches
-
-def find_recipes_by_cuisine(cuisine: str, exclude_dish: str) -> list:
-    """Find recipes from similar cuisine"""
-    cuisine_keywords = {
-        'indian': ['masala', 'curry', 'biryani', 'dal', 'tandoori', 'paneer', 'tikka'],
-        'italian': ['pasta', 'pizza', 'risotto', 'carbonara', 'marinara'],
-        'chinese': ['fried rice', 'noodles', 'stir fry', 'sweet and sour'],
-        'american': ['burger', 'bbq', 'sandwich', 'grilled']
-    }
-    
-    keywords = cuisine_keywords.get(cuisine.lower(), [])
-    matches = []
-    
-    for recipe in recipe_db:
-        title = recipe.get('title', '').lower()
-        if (title != exclude_dish and 
-            any(keyword in title for keyword in keywords)):
-            matches.append(recipe.get('title', ''))
-            if len(matches) >= 3:
-                break
-    
-    return matches
-
-def find_recipes_by_cooking_method(method: str, exclude_dish: str) -> list:
-    """Find recipes using similar cooking method"""
-    matches = []
-    for recipe in recipe_db:
-        title = recipe.get('title', '').lower()
-        if (title != exclude_dish and method.lower() in title):
-            matches.append(recipe.get('title', ''))
-            if len(matches) >= 2:
-                break
-    
-    return matches
-
-def find_recipes_by_meal_type(meal_type: str, exclude_dish: str) -> list:
-    """Find recipes of similar meal type"""
-    meal_keywords = {
-        'breakfast': ['breakfast', 'pancake', 'toast', 'oatmeal'],
-        'lunch': ['salad', 'sandwich', 'wrap', 'soup'],
-        'dinner': ['curry', 'roast', 'stir fry', 'casserole'],
-        'dessert': ['cake', 'ice cream', 'pie', 'cookies']
-    }
-    
-    keywords = meal_keywords.get(meal_type.lower(), [])
-    matches = []
-    
-    for recipe in recipe_db:
-        title = recipe.get('title', '').lower()
-        if (title != exclude_dish and 
-            any(keyword in title for keyword in keywords)):
-            matches.append(recipe.get('title', ''))
-            if len(matches) >= 2:
-                break
-    
-    return matches
-
-def similar_recipe_names(name1: str, name2: str) -> bool:
-    """Check if two recipe names are similar to avoid duplicates"""
-    # Simple similarity check - can be enhanced with fuzzy matching
-    words1 = set(name1.lower().split())
-    words2 = set(name2.lower().split())
-    
-    # If they share more than 60% of words, consider them similar
-    intersection = len(words1.intersection(words2))
-    union = len(words1.union(words2))
-    
-    similarity = intersection / union if union > 0 else 0
-    return similarity > 0.6
-
-@app.route('/api/classify-dietary', methods=['POST'])
-def classify_dietary_flask():
-    """Classify recipe for dietary restrictions (Flask version)"""
-    try:
-        data = request.get_json()
-        ingredients = data.get('ingredients', '').strip()
-        title = data.get('title', '').strip()
-        
-        if not ingredients:
-            return jsonify({'error': 'Ingredients are required'}), 400
-        
-        dietary_info = classify_recipe_dietary(ingredients, title)
-        
+        print(f"❌ Complete failure in recommendations: {e}")
         return jsonify({
-            'success': True,
-            'recipe_title': title,
-            'dietary_analysis': dietary_info
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/generate-meal-plan', methods=['POST'])
-def generate_meal_plan_flask():
-    """Generate a personalized weekly meal plan using AI"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-            
-        days = data.get('days', 7)
-        dietary_preferences = data.get('dietary_preferences', [])
-        cuisine_preferences = data.get('cuisine_preferences', [])
-        cooking_time = data.get('cooking_time_preference', 'any')
-        
-        print(f"🍽️ Generating {days}-day meal plan with preferences: {dietary_preferences}")
-        
-        # Generate meal plan using AI
-        meal_plan = generate_meal_plan(
-            days=days, 
-            dietary_preferences=dietary_preferences,
-            cuisine_preferences=cuisine_preferences,
-            cooking_time_preference=cooking_time
-        )
-        
-        print("✅ Meal plan generated, now generating shopping list...")
-        
-        # Generate shopping list from the meal plan
-        shopping_list = generate_shopping_list(meal_plan)
-        
-        print("✅ Shopping list generated successfully")
-        
-        return jsonify({
-            'success': True,
-            'meal_plan': meal_plan,
-            'shopping_list': shopping_list,
-            'days': days,
-            'preferences': {
-                'dietary': dietary_preferences,
-                'cuisine': cuisine_preferences,
-                'cooking_time': cooking_time
-            },
-            'message': f'Generated personalized {days}-day meal plan!'
-        })
-    
-    except Exception as e:
-        print(f"❌ Error generating meal plan: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({
-            'error': str(e),
             'success': False,
-            'message': 'Failed to generate meal plan'
+            'error': str(e),
+            'dish_name': dish_name,
+            'suggestions': []
         }), 500
 
-@app.route('/api/recipes-by-meal-type', methods=['POST'])
-def recipes_by_meal_type_flask():
-    """Get AI-generated recipes filtered by meal type"""
-    try:
-        data = request.get_json()
-        meal_type = data.get('meal_type', '').strip().lower()
-        limit = data.get('limit', 8)
-        dietary_preferences = data.get('dietary_preferences', [])
-        
-        valid_meal_types = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
-        
-        if meal_type not in valid_meal_types:
-            return jsonify({
-                'error': f'Invalid meal type. Must be one of: {", ".join(valid_meal_types)}'
-            }), 400
-        
-        print(f"🍽️ Generating {meal_type} recipes with dietary preferences: {dietary_preferences}")
-        
-        # Generate recipes using AI
-        recipes = get_meal_type_recipes(meal_type, limit, dietary_preferences)
-        
-        return jsonify({
-            'success': True,
-            'meal_type': meal_type,
-            'recipes': recipes,
-            'count': len(recipes),
-            'dietary_preferences': dietary_preferences
-        })
-    
-    except Exception as e:
-        print(f"❌ Error generating {meal_type} recipes: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# Add new endpoints for enhanced functionality
-
-@app.route('/api/modify-recipe', methods=['POST'])
-def modify_recipe_flask():
-    """Suggest recipe modifications based on dietary needs or available ingredients"""
-    try:
-        data = request.get_json()
-        recipe_text = data.get('recipe', '').strip()
-        dietary_needs = data.get('dietary_needs', [])
-        available_ingredients = data.get('available_ingredients', [])
-        
-        if not recipe_text:
-            return jsonify({'error': 'Recipe text is required'}), 400
-        
-        modifications = suggest_recipe_modifications(
-            recipe_text, 
-            dietary_needs, 
-            available_ingredients
-        )
-        
-        return jsonify({
-            'success': True,
-            'original_recipe': recipe_text,
-            'modifications': modifications,
-            'dietary_needs': dietary_needs,
-            'available_ingredients': available_ingredients
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/analyze-nutrition', methods=['POST'])
-def analyze_nutrition_flask():
-    """Analyze nutritional content of a recipe"""
-    try:
-        data = request.get_json()
-        recipe_text = data.get('recipe', '').strip()
-        
-        if not recipe_text:
-            return jsonify({'error': 'Recipe text is required'}), 400
-        
-        nutrition_info = analyze_nutritional_content(recipe_text)
-        
-        return jsonify({
-            'success': True,
-            'recipe': recipe_text,
-            'nutrition': nutrition_info
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/generate-shopping-list', methods=['POST'])
-def generate_shopping_list_flask():
-    """Generate shopping list from meal plan"""
-    try:
-        data = request.get_json()
-        meal_plan = data.get('meal_plan', '').strip()
-        
-        if not meal_plan:
-            return jsonify({'error': 'Meal plan is required'}), 400
-        
-        shopping_list = generate_shopping_list(meal_plan)
-        
-        return jsonify({
-            'success': True,
-            'meal_plan': meal_plan,
-            'shopping_list': shopping_list
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/health', methods=['GET'])
+# **🔥 HEALTH CHECK ENDPOINT**
+@app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint with proper error handling"""
+    try:
+        return jsonify({
+            'status': 'healthy',
+            'database_loaded': len(recipe_db) > 0,
+            'total_recipes': len(recipe_db),
+            'model_available': model is not None,
+            'timestamp': str(datetime.now())
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'database_loaded': False,
+            'total_recipes': 0,
+            'model_available': False
+        }), 500
+
+# Also add a simple root endpoint for testing:
+@app.route('/', methods=['GET'])
+def root():
+    """Root endpoint"""
     return jsonify({
-        'status': 'healthy',
-        'recipes_loaded': len(recipe_db) > 0,
-        'total_recipes': len(recipe_db),
-        'api_configured': bool(GEMINI_API_KEY)
+        'message': 'Recipe Chatbot API is running',
+        'status': 'online',
+        'endpoints': [
+            '/api/health',
+            '/api/search-recipe',
+            '/api/generate-recipe',
+            '/api/search-by-ingredient',
+            '/api/related-recipes'
+        ]
     })
 
-def debug_recipe_data(recipe_title: str):
-    """Debug function to see raw recipe data"""
-    recipe = search_recipe_in_csv(recipe_title)
-    if recipe:
-        print(f"\n🔍 DEBUG: Raw recipe data for '{recipe_title}':")
-        print(f"Title: {recipe.get('title', 'N/A')}")
-        print(f"Ingredients type: {type(recipe.get('ingredients'))}")
-        print(f"Ingredients raw: {recipe.get('ingredients', 'N/A')[:200]}...")
-        print(f"Directions type: {type(recipe.get('directions'))}")
-        print(f"Directions raw: {recipe.get('directions', 'N/A')[:200]}...")
-        return recipe
-    else:
-        print(f"❌ Recipe '{recipe_title}' not found in database")
-        return None
-
-# Add this to your search endpoint for testing
-@app.route('/api/debug-recipe', methods=['POST'])
-def debug_recipe():
-    """Debug endpoint to check raw recipe data"""
-    try:
-        data = request.get_json()
-        dish_name = data.get('dish_name', '').strip()
-        
-        recipe = debug_recipe_data(dish_name)
-        
-        return jsonify({
-            'found': recipe is not None,
-            'raw_data': recipe if recipe else None
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# Add this debug endpoint to your chatbot.py
-@app.route('/api/debug-rum-cake', methods=['GET'])
-def debug_rum_cake():
-    """Debug Rum Cake specifically"""
-    recipe = search_recipe_in_csv("rum cake")
-    if recipe:
-        return jsonify({
-            'found': True,
-            'title': recipe.get('title'),
-            'raw_ingredients': recipe.get('ingredients'),
-            'raw_directions': recipe.get('directions'),
-            'ingredients_type': str(type(recipe.get('ingredients'))),
-            'directions_type': str(type(recipe.get('directions')))
-        })
-    else:
-        return jsonify({'found': False})
-
 if __name__ == '__main__':
-    print("🚀 Starting NutriChef Backend...")
-    print(f"📊 Loaded {len(recipe_db)} recipes from CSV")
-    print(f"🔑 API Key configured: {'✅' if GEMINI_API_KEY else '❌'}")
+    print("🚀 Starting Recipe Chatbot Server...")
     
-    # Get configuration from environment variables with defaults
-    debug_mode = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
-    host = os.getenv('FLASK_HOST', '0.0.0.0')
-    port = int(os.getenv('FLASK_PORT', 5000))
+    # Test database loading
+    if len(recipe_db) > 0:
+        print(f"✅ Database loaded successfully: {len(recipe_db)} recipes")
+    else:
+        print("⚠️ Warning: No recipes loaded from database")
     
-    app.run(debug=debug_mode, host=host, port=port)
+    # Test AI model
+    if model:
+        print("✅ AI Model: Available")
+        try:
+            # Test the model with a simple query
+            test_response = model.generate_content("Hello")
+            print("✅ AI Model test successful")
+        except Exception as e:
+            print(f"⚠️ AI Model test failed: {e}")
+    else:
+        print("❌ AI Model: Not Available")
+    
+    # Test health endpoint
+    try:
+        print("🔧 Starting Flask server on http://0.0.0.0:5000")
+        print("📍 Health check available at: http://localhost:5000/api/health")
+        app.run(debug=True, host='0.0.0.0', port=5000)
+    except Exception as e:
+        print(f"❌ Failed to start server: {e}")
