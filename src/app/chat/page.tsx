@@ -44,11 +44,9 @@ interface UserProfile {
 
 export default function ChatPage() {
   // Core state
-  const [messages, setMessages] = useState<Message[]>(
-    [
-      { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
-    ]
-  );
+  const [messages, setMessages] = useState<Message[]>([
+    { from: 'bot' as const, text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+  ]);
   const [input, setInput] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -243,7 +241,7 @@ export default function ChatPage() {
         setPreviousChats([]);
         setCurrentConversationId(null);
         setMessages([
-          { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+          { from: 'bot' as const, text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
         ]);
         setImageLoadErrors(new Set()); // Clear image errors
         router.push('/login');
@@ -272,7 +270,7 @@ export default function ChatPage() {
         
         // Reset messages to welcome message
         setMessages([
-          { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+          { from: 'bot' as const, text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
         ]);
         
         // Load conversation history for the new user
@@ -348,7 +346,7 @@ export default function ChatPage() {
     if (!messageToSend) return;
     
     const messageId = Date.now();
-    setMessages(prev => [...prev, { from: 'user', text: messageToSend, id: messageId }]);
+    setMessages(prev => [...prev, { from: 'user' as const, text: messageToSend, id: messageId }]);
     setInput('');
     setIsTyping(true);
     setShowQuickActions(false);
@@ -372,7 +370,7 @@ export default function ChatPage() {
       if (!response.ok) {
         setMessages(prev => [
           ...prev,
-          { from: 'bot', text: `Sorry, I'm having trouble right now. Please try again! 🍳`, id: Date.now() }
+          { from: 'bot' as const, text: `Sorry, I'm having trouble right now. Please try again! 🍳`, id: Date.now() }
         ]);
         return;
       }
@@ -380,20 +378,24 @@ export default function ChatPage() {
       const data = await response.json();
       const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
 
-      const updatedMessages = [...messages, 
-        { from: 'user', text: messageToSend, id: messageId },
-        { from: 'bot', text: recipeResponse, id: Date.now() }
-      ];
-
-      setMessages(updatedMessages);
+      setMessages(prev => [
+        ...prev,
+        { from: 'bot' as const, text: recipeResponse, id: Date.now() }
+      ]);
       
       // Save conversation
       const user = auth.currentUser;
       if (user) {
         try {
+          const newMessages = [
+            ...messages, 
+            { from: 'user' as const, text: messageToSend, id: messageId },
+            { from: 'bot' as const, text: recipeResponse, id: Date.now() }
+          ];
+          
           const conversationId = await saveConversation(
             user.uid, 
-            updatedMessages,
+            newMessages,
             currentConversationId
           );
           
@@ -411,7 +413,7 @@ export default function ChatPage() {
       setIsTyping(false);
       setMessages(prev => [
         ...prev,
-        { from: 'bot', text: 'Something went wrong! Please try again. 🍳', id: Date.now() }
+        { from: 'bot' as const, text: 'Something went wrong! Please try again. 🍳', id: Date.now() }
       ]);
       console.error('Error calling chat API:', error);
     }
@@ -455,7 +457,7 @@ export default function ChatPage() {
       setPreviousChats([]);
       setCurrentConversationId(null);
       setMessages([
-        { from: 'bot', text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
+        { from: 'bot' as const, text: 'Hello! I\'m NutriChef, your recipe assistant. How can I help you today?', id: Date.now() }
       ]);
       setImageLoadErrors(new Set()); // Clear image errors
       
@@ -471,7 +473,7 @@ export default function ChatPage() {
 
   const clearChat = () => {
     setMessages([
-      { from: 'bot', text: 'Chat cleared! How can I help you today?', id: Date.now() }
+      { from: 'bot' as const, text: 'Chat cleared! How can I help you today?', id: Date.now() }
     ]);
     setCurrentConversationId(null);
     setShowQuickActions(true);
@@ -493,8 +495,8 @@ export default function ChatPage() {
       return;
     }
     
-    const chatMessages = conversation.messages.map((msg: any, index: number) => ({
-      from: msg.from,
+    const chatMessages: Message[] = conversation.messages.map((msg: any, index: number) => ({
+      from: (msg.from === 'user' ? 'user' : 'bot') as 'user' | 'bot',
       text: msg.text,
       id: Date.now() + index
     }));

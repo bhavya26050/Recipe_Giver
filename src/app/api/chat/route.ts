@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 // ✅ Backend URL configuration for production
 const BACKEND_URL = process.env.NODE_ENV === 'production' 
-  ? process.env.NEXT_PUBLIC_BACKEND_URL || 'https://your-render-backend.onrender.com'
+  ? process.env.NEXT_PUBLIC_BACKEND_URL || 'https://recipe-giver-backend.onrender.com'
   : 'http://localhost:5000';
 
 console.log('🔗 Backend URL:', BACKEND_URL);
