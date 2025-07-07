@@ -1,5 +1,12 @@
 import { db } from './firebaseConfig';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+
+// ✅ FIX: Add Message interface
+interface Message {
+  from: 'user' | 'bot';
+  text: string;
+  id: number;
+}
 
 /**
  * Save or update a conversation in Firestore
@@ -9,60 +16,42 @@ import { addDoc, collection, serverTimestamp, doc, updateDoc, getDoc } from 'fir
  */
 export const saveConversation = async (
   userId: string,
-  messages: Array<{from: string, text: string, id: number}>,
+  messages: Message[],
   conversationId?: string
-) => {
+): Promise<string> => {
   try {
-    if (!userId || !messages || messages.length === 0) {
-      console.warn("Missing required data for conversation save:", { 
-        userId: !!userId, 
-        messages: messages?.length || 0 
-      });
-      return null;
-    }
-
-    // Filter out system messages and get user/bot pairs
-    const conversationMessages = messages.filter(msg => 
-      msg.from === 'user' || msg.from === 'bot'
-    );
-
-    if (conversationMessages.length === 0) {
-      console.warn("No valid messages to save");
-      return null;
-    }
-
-    // Get the first user message as the conversation title
-    const firstUserMessage = conversationMessages.find(msg => msg.from === 'user');
-    const title = firstUserMessage ? 
-      (firstUserMessage.text.substring(0, 40) + (firstUserMessage.text.length > 40 ? '...' : '')) :
-      'Untitled Conversation';
-
-    const conversationData = {
+    const title = messages.length > 0 ? 
+      messages.find(m => m.from === 'user')?.text.slice(0, 50) + '...' || 'New Chat' : 
+      'New Chat';
+    
+    const lastMessage = messages.length > 0 ? messages[messages.length - 1].text : '';
+    
+    const conversationData: any = {  // ✅ FIX: Use 'any' type to allow dynamic properties
       title,
-      messages: conversationMessages.map(msg => ({
+      messages: messages.map(msg => ({
         from: msg.from,
         text: msg.text,
         timestamp: new Date()
       })),
-      lastMessage: conversationMessages[conversationMessages.length - 1]?.text || '',
+      lastMessage,
       lastUpdated: serverTimestamp(),
-      messageCount: conversationMessages.length
+      messageCount: messages.length
     };
 
     if (conversationId) {
       // Update existing conversation
-      const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
-      await updateDoc(conversationRef, conversationData);
+      const docRef = doc(db, 'users', userId, 'conversations', conversationId);
+      await updateDoc(docRef, conversationData);
       console.log("✅ Conversation updated successfully");
       return conversationId;
     } else {
       // Create new conversation
-      conversationData.createdAt = serverTimestamp();
+      conversationData.createdAt = serverTimestamp();  // ✅ Now this works because we used 'any'
       const docRef = await addDoc(collection(db, 'users', userId, 'conversations'), conversationData);
       console.log("✅ New conversation saved successfully");
       return docRef.id;
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("❌ Error saving conversation:", error);
     throw error;
   }
@@ -79,7 +68,7 @@ export const saveUserHistory = async (
   try {
     console.log("⚠️ saveUserHistory is deprecated, use saveConversation instead");
     
-    const messages = [
+    const messages: Message[] = [
       { from: 'user', text: prompt, id: Date.now() },
       { from: 'bot', text: response, id: Date.now() + 1 }
     ];

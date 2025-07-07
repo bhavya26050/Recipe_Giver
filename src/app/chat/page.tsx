@@ -378,16 +378,17 @@ export default function ChatPage() {
       const data = await response.json();
       const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
 
+      // ✅ FIX: Proper message structure with explicit typing
       setMessages(prev => [
         ...prev,
         { from: 'bot' as const, text: recipeResponse, id: Date.now() }
       ]);
       
-      // Save conversation
+      // Save conversation with proper message types
       const user = auth.currentUser;
       if (user) {
         try {
-          const newMessages = [
+          const newMessages: Message[] = [
             ...messages, 
             { from: 'user' as const, text: messageToSend, id: messageId },
             { from: 'bot' as const, text: recipeResponse, id: Date.now() }
@@ -396,7 +397,7 @@ export default function ChatPage() {
           const conversationId = await saveConversation(
             user.uid, 
             newMessages,
-            currentConversationId
+            currentConversationId || undefined  // ✅ FIX: Convert null to undefined
           );
           
           if (!currentConversationId && conversationId) {
@@ -495,11 +496,14 @@ export default function ChatPage() {
       return;
     }
     
-    const chatMessages: Message[] = conversation.messages.map((msg: any, index: number) => ({
-      from: (msg.from === 'user' ? 'user' : 'bot') as 'user' | 'bot',
-      text: msg.text,
-      id: Date.now() + index
-    }));
+    const chatMessages: Message[] = conversation.messages.map((msg: any, index: number) => {
+      const messageFrom: 'user' | 'bot' = msg.from === 'user' ? 'user' : 'bot';  // ✅ FIX: Explicit typing
+      return {
+        from: messageFrom,
+        text: msg.text,
+        id: Date.now() + index
+      };
+    });
     
     setMessages(chatMessages);
     setCurrentConversationId(conversation.id);
