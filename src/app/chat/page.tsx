@@ -378,7 +378,7 @@ export default function ChatPage() {
       const data = await response.json();
       const recipeResponse = data.response || "I'm not sure how to help with that. Can you ask about a recipe?";
 
-      // ✅ FIX: Proper message structure with explicit typing
+      // ✅ FIX: Add the bot message directly to state (remove problematic updatedMessages)
       setMessages(prev => [
         ...prev,
         { from: 'bot' as const, text: recipeResponse, id: Date.now() }
@@ -388,6 +388,7 @@ export default function ChatPage() {
       const user = auth.currentUser;
       if (user) {
         try {
+          // ✅ FIX: Create newMessages with proper typing
           const newMessages: Message[] = [
             ...messages, 
             { from: 'user' as const, text: messageToSend, id: messageId },
@@ -397,7 +398,7 @@ export default function ChatPage() {
           const conversationId = await saveConversation(
             user.uid, 
             newMessages,
-            currentConversationId || undefined  // ✅ FIX: Convert null to undefined
+            currentConversationId || undefined
           );
           
           if (!currentConversationId && conversationId) {
