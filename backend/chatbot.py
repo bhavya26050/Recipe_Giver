@@ -18,6 +18,26 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+@app.after_request
+def after_request(response):
+    """Add CORS headers to all responses"""
+    origin = request.headers.get('Origin')
+    if origin:
+        if os.environ.get('FLASK_ENV') == 'production':
+            allowed_origins = [
+                'https://recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app',
+                'https://recipe-giver.vercel.app'  # If you have a custom domain
+            ]
+            if any(origin.startswith(allowed) for allowed in allowed_origins) or origin.endswith('.vercel.app'):
+                response.headers['Access-Control-Allow-Origin'] = origin
+        else:
+            response.headers['Access-Control-Allow-Origin'] = 'http://localhost:3000'
+    
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization,Accept'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    return response
+
 # Configure Gemini API using environment variable
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 if not GEMINI_API_KEY:
@@ -829,16 +849,21 @@ def related_recipes():
         }), 500
 
 # **🔥 HEALTH CHECK ENDPOINT**
-@app.route('/api/health', methods=['GET'])
+@app.route('/api/health', methods=['GET', 'OPTIONS'])
 def health_check():
-    """Health check endpoint with proper error handling"""
+    """Health check endpoint with proper CORS handling"""
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
         return jsonify({
             'status': 'healthy',
             'database_loaded': len(recipe_db) > 0,
             'total_recipes': len(recipe_db),
             'model_available': model is not None,
-            'timestamp': str(datetime.now())
+            'timestamp': str(datetime.now()),
+            'cors_configured': True,
+            'frontend_url': 'https://recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app'
         }), 200
     except Exception as e:
         return jsonify({
@@ -872,11 +897,12 @@ if __name__ == '__main__':
     if os.environ.get('FLASK_ENV') == 'production':
         app.config['DEBUG'] = False
         host = '0.0.0.0'
-        # Update CORS for production - add your Vercel URL here after deployment
+        # ✅ UPDATE: Add your actual Vercel URL
         CORS(app, origins=[
             "http://localhost:3000",  # Development
             "https://*.vercel.app",   # All Vercel apps
-            "https://your-vercel-app.vercel.app"  # Replace with actual URL
+            "https://recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app",  # Your actual URL
+            "https://recipe-giver-*.vercel.app"  # Future deployments
         ])
         print(f"🚀 Production mode on {host}:{port}")
     else:
@@ -886,6 +912,6 @@ if __name__ == '__main__':
         print(f"🔧 Development mode on {host}:{port}")
     
     print(f"🌍 Environment: {os.environ.get('FLASK_ENV', 'development')}")
-    print(f"🔗 CORS configured for: {app.config.get('origins', 'localhost')}")
+    print(f"🔗 CORS configured for production Vercel app")
     
     app.run(host=host, port=port, debug=app.config['DEBUG'])
