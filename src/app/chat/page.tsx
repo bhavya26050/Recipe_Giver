@@ -536,7 +536,7 @@ export default function ChatPage() {
         <h3 className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Quick Actions</h3>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {/*
+        
           <button
             onClick={() => handleQuickAction('Generate a healthy weekly meal plan for 2 people')}
             className="p-3 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white text-sm font-medium hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -565,7 +565,7 @@ export default function ChatPage() {
             <Moon className="w-4 h-4 mx-auto mb-1" />
             Dinner
           </button>
-        */}
+       
       </div>
     </div>
   );
@@ -957,7 +957,7 @@ export default function ChatPage() {
                   disabled={isRecording}
                 />
 
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 pb-9">
                   <button 
                     onClick={toggleVoiceRecording} 
                     className={`p-2.5 rounded-xl transition-all ${
