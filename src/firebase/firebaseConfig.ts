@@ -5,7 +5,7 @@ import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCpp4VZM_hyDxmRsclShMadbn9PrMkVk-E",
-  authDomain: "recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app", // ✅ FIX: Use actual Vercel URL
+  authDomain: "https://recipe-giver.vercel.app", // ✅ FIX: Use actual Vercel URL
   projectId: "nutrichef-6dbdd",
   storageBucket: "nutrichef-6dbdd.firebasestorage.app",
   messagingSenderId: "923897857495",
