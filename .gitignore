@@ -1,33 +1,46 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # Dependencies
-node_modules/
-backend/__pycache__/
-backend/*.pyc
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
 
 # Environment variables
-.env.local
-backend/.env
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Build outputs
-.next/
-dist/
+# Security
+*.key
+*.pem
+*.crt
+config/secrets.json
+
+# Backend
+backend/.env
+backend/__pycache__/
+backend/*.pyc
+backend/secrets/
 
 # Logs
 *.log
 npm-debug.log*
-
-# Python
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
+yarn-debug.log*
+yarn-error.log*
