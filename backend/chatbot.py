@@ -863,7 +863,7 @@ def health_check():
             'model_available': model is not None,
             'timestamp': str(datetime.now()),
             'cors_configured': True,
-            'frontend_url': 'https://recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app'
+            'frontend_url': 'https://recipe-giver.vercel.app'
         }), 200
     except Exception as e:
         return jsonify({
@@ -900,7 +900,7 @@ if __name__ == '__main__':
         # ✅ UPDATE: Add your actual Vercel URL
         CORS(app, origins=[
             "http://localhost:3000",  # Development
-            "https://*.vercel.app",   # All Vercel apps
+            "https://recipe-giver.vercel.app",   # All Vercel apps
             "https://recipe-giver-6o7k1pa24-bhavyas-projects-729efaae.vercel.app",  # Your actual URL
             "https://recipe-giver-*.vercel.app"  # Future deployments
         ])
