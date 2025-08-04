@@ -1,52 +1,62 @@
+# 🍳 NutriChef (Recipe_Giver)
 
-# 🍳 Recipe_Giver
-
-A sleek, modern web application for discovering, sharing, and managing recipes, powered by Next.js and TypeScript.
-
----
-
-## 📖 About
-
-Recipe_Giver offers an interactive platform where food enthusiasts can browse, search, and contribute recipes of all kinds. Whether you're a home cook or a culinary pro, easily find inspiration or add your signature dishes to the collection.
+NutriChef is an AI-powered recipe assistant that helps users discover, generate, and manage recipes based on their preferences, dietary needs, and available ingredients. Combining a modern Next.js frontend, a flexible Python backend, Gemini AI integration, and real user authentication, NutriChef delivers a seamless, engaging, and highly customizable cooking experience.
 
 ---
 
-## ✨ Features
+## 🚀 Features
 
-- **Recipe Catalog:** Explore a growing library of diverse recipes
-- **Recipe Submission:** Add your own recipes with ingredients, steps, and photos
-- **Search & Filter:** Quickly find recipes by name, ingredient, or type
-- **Responsive UI:** Optimized for desktop and mobile devices
-- **Live Editing:** Instantly preview changes while editing (Next.js hot reload)
-- **Font Optimization:** Seamless font loading with `next/font`
-- **Easy Deployment:** Effortless deployment and hosting via Vercel
-
----
-
-## 🛠️ Technologies
-
-- **Frontend:** Next.js, React, TypeScript
-- **Styling:** CSS Modules or Tailwind CSS *(customize as needed)*
-- **Fonts:** Geist via `next/font`
-- **Backend/API:** (Optional) Python for data processing or custom APIs
-- **Deployment:** Vercel
+- **Recipe Discovery:** Search a curated database of diverse recipes
+- **AI Recipe Generation:** Get creative, step-by-step recipes using Google Gemini AI when the database doesn't have what you need
+- **Ingredient-Based Suggestions:** Find recipes with specific ingredients or based on what you have in your kitchen
+- **Personalized Meal Plans:** Generate full meal plans tailored to dietary restrictions and cuisine preferences
+- **Dietary Classification:** Instantly see if a recipe is vegan, gluten-free, healthy, etc.
+- **Chatbot UX:** Conversational interface for recipe requests and suggestions
+- **User Authentication:** Secure login via Firebase Auth (Email/Google)
+- **Save Conversation History:** Store your chats and favorite recipes in your personal account
+- **Responsive UI:** Mobile-first, modern design using Tailwind CSS and React components
 
 ---
 
-## 🧰 Getting Started
+## 🛠️ Tech Stack
+
+| Layer      | Technology                                              |
+|------------|--------------------------------------------------------|
+| Frontend   | Next.js, React, TypeScript, Tailwind CSS, Geist Font   |
+| Backend    | Python, Flask, Flask-CORS, Google Gemini AI, CSV       |
+| Auth/Data  | Firebase Auth, Firestore                               |
+| Deployment | Vercel (frontend), Render or similar (backend)         |
+
+---
+
+## 🏗️ Project Structure
+
+```
+/src/app/         # Next.js app directory (pages, layouts, API routes)
+  /components/    # Reusable React components (e.g., Navbar, Chat UI)
+  /firebase/      # Firebase config and helpers
+  /styles/        # Tailwind CSS and global styles
+/backend/         # Python Flask API, Gemini AI logic, CSV data
+/public/          # Static assets (images, icons)
+```
+
+---
+
+## 🧑‍💻 Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or later)
+- Node.js 16+
+- Python 3.8+
 - npm or yarn
+- (Optional) Google Gemini API Key
+- Firebase Project (for Auth & Firestore)
 
-### Installation
+### Installation (Frontend)
 
 ```bash
 # Clone the repository
 git clone https://github.com/bhavya26050/Recipe_Giver.git
-
-# Navigate into the project directory
 cd Recipe_Giver
 
 # Install dependencies
@@ -54,72 +64,83 @@ npm install
 # or
 yarn install
 
+# Create a .env.local file and add any required NEXT_PUBLIC_ env variables
+
 # Start the development server
 npm run dev
 # or
 yarn dev
 ```
 
+### Installation (Backend)
 
----
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # or venv\Scripts\activate on Windows
+pip install -r requirements.txt
 
-## 🧪 Development
+# Set up environment variables in a .env file (see .env.example)
+# Example:
+# GEMINI_API_KEY=your-gemini-key
 
-### Project Structure
-
-```plaintext
-app/                # Next.js app directory (pages, layouts)
-components/         # Reusable React components
-public/             # Static assets (images, icons)
-styles/             # CSS or Tailwind configuration
-utils/              # Utility functions (helpers)
-```
-
-### Example Recipe Model
-
-```typescript
-interface Recipe {
-  id: string;
-  title: string;
-  description: string;
-  ingredients: string[];
-  steps: string[];
-  imageUrl?: string;
-  author?: string;
-  tags?: string[];
-  createdAt: Date;
-}
+# Run the Flask server
+python chatbot.py
 ```
 
 ---
 
-## 🚀 Deployment
+## 🔑 Environment Variables
 
-Deploy instantly on [Vercel](https://vercel.com/) for best performance and simplicity.
-
-1. Push your code to GitHub.
-2. Import your repository into Vercel.
-3. Configure environment variables if needed.
-4. Enjoy automatic deployments with every push.
-
-See [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more.
+- **Frontend:**  
+  - See `.env.example` for required environment variables (API base URLs, Firebase config, etc.)
+- **Backend:**  
+  - `GEMINI_API_KEY`
+  - Any other API or DB credentials
 
 ---
 
-## 🤝 Contributing
+## 📦 Deployment
 
-Contributions are welcome! To get started:
+- **Frontend:** Deploy on [Vercel](https://recipe-giver.vercel.app/) for best performance.
+- **Backend:** Deploy on [Render](https://recipe-giver-backend.onrender.com/), Heroku, or a similar Python hosting service.
+- **Environment variables** must be set in your deployment dashboard.
 
-1. Fork this repository
-2. Create a new branch (`git checkout -b feature/YourFeature`)
-3. Commit your changes (`git commit -m 'Add new feature'`)
-4. Push to your branch (`git push origin feature/YourFeature`)
-5. Open a Pull Request
+---
+
+## ⚙️ Key Design Decisions
+
+- **Hybrid Recipe Engine:**  
+  - Checks its own CSV database first (for speed & reliability), then uses Gemini AI as a fallback for creative or missing recipes.
+- **Intent Guardrails:**  
+  - Only food/recipe-related queries are passed to AI (prevents off-topic answers and ensures user safety).
+- **Post-processing:**  
+  - AI responses are cleaned, formatted, and structured before being shown to the user.
+- **Robust Error Handling:**  
+  - If both database and AI fail, users see a helpful error, never a raw trace.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License.  
-See the [LICENSE](LICENSE) file for details.
-```
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome!  
+- Fork this repository
+- Create a new feature branch
+- Submit a pull request with details
+
+---
+
+## 🙋‍♂️ Questions or Support?
+
+- File an issue in GitHub [issues](https://github.com/bhavya26050/Recipe_Giver/issues)
+- Or contact the maintainer via GitHub profile
+
+---
+
+> **NutriChef – Your AI Partner in the Kitchen!**
